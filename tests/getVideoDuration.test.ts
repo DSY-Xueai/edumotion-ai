@@ -2,22 +2,26 @@ import { describe, expect, it } from "vitest";
 import { getVideoDurationInFrames } from "../src/lib/getVideoDurationInFrames";
 
 describe("getVideoDurationInFrames", () => {
-  it("sums all scene durations", () => {
+  it("sums render package scene durations", () => {
     expect(
       getVideoDurationInFrames([
         {
           id: "scene-1",
-          type: "cover",
-          title: "Title",
-          subtitle: "Subtitle",
-          duration: 90,
+          kind: "hook",
+          component: "math/hook",
+          durationInFrames: 90,
+          payload: {
+            title: "Title",
+          },
         },
         {
           id: "scene-2",
-          type: "ending",
-          heading: "总结",
-          text: "Done",
-          duration: 75,
+          kind: "wrap",
+          component: "math/wrap",
+          durationInFrames: 75,
+          payload: {
+            title: "Done",
+          },
         },
       ]),
     ).toBe(165);

@@ -1,5 +1,4 @@
-import type { Scene } from "./schema";
+import type { RenderPackageScene } from "./rendering/schema";
 
-export const getVideoDurationInFrames = (scenes: Scene[]) => {
-  return scenes.reduce((total, scene) => total + scene.duration, 0);
-};
+export const getVideoDurationInFrames = (scenes: RenderPackageScene[]) =>
+  scenes.reduce((total, scene) => total + Number(scene.durationInFrames), 0);

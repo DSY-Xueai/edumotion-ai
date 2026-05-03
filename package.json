@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "cli": "tsx src/cli/index.ts",
     "dev": "remotion studio",
     "test": "vitest run",
     "render": "tsx src/cli/render.ts",
@@ -14,11 +15,10 @@
     "@remotion/cli": "^4.0.340",
     "@remotion/player": "^4.0.340",
     "@remotion/renderer": "^4.0.340",
-    "mammoth": "^1.9.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "remotion": "^4.0.340",
-    "zod": "^3.24.4"
+    "zod": "4.3.6"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

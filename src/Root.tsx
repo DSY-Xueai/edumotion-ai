@@ -1,34 +1,55 @@
 import { Composition } from "remotion";
 import { AutoVideoComposition } from "./compositions/AutoVideoComposition";
 import { getVideoDurationInFrames } from "./lib/getVideoDurationInFrames";
-import type { VideoSpec } from "./lib/schema";
+import type { RenderPackage } from "./lib/rendering/schema";
 
-const defaultProps: VideoSpec = {
+const defaultProps: RenderPackage = {
+  topicId: "demo-topic",
+  lessonVersion: 1,
+  canonicalTitle: "Demo Topic",
+  approvedAt: "2026-04-26T00:00:00.000Z",
+  generatedAt: "2026-04-26T00:00:00.000Z",
+  totalDurationMs: 5000,
   meta: {
-    title: "Demo Video",
+    topicId: "demo-topic",
+    subject: "math",
     aspectRatio: "9:16",
-    theme: "editorial-bold",
-    sourceFile: "demo.txt",
   },
-  assets: {
-    images: [],
+  subject: "math",
+  themeTokens: {
+    palette: "math-clean",
+    typography: "math-serif",
+    accent: "#1f4b99",
+  },
+  audioTracks: [],
+  subtitleTrack: {
+    topicId: "demo-topic",
+    subject: "math",
+    cues: [],
   },
   scenes: [
     {
       id: "scene-1",
-      type: "cover",
-      title: "Demo Video",
-      subtitle: "Waiting for pipeline data",
-      duration: 90,
+      kind: "hook",
+      component: "math/hook",
+      durationInFrames: 90,
+      payload: {
+        title: "Demo Topic",
+        narration: "Waiting for curriculum pipeline data.",
+      },
     },
     {
       id: "scene-2",
-      type: "ending",
-      heading: "总结",
-      text: "准备开始渲染",
-      duration: 75,
+      kind: "wrap",
+      component: "math/wrap",
+      durationInFrames: 60,
+      payload: {
+        title: "Demo Topic",
+        narration: "The STEM render pipeline is ready for the next step.",
+      },
     },
   ],
+  durationInFrames: 150,
 };
 
 export const Root = () => {
