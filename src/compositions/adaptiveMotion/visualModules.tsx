@@ -49,6 +49,31 @@ const asString = (value: unknown, fallback = "") =>
 const asStringArray = (value: unknown) =>
   Array.isArray(value) ? value.map((item) => String(item)).filter(Boolean) : [];
 
+const asDisplayArray = (value: unknown) =>
+  Array.isArray(value)
+    ? value
+        .map((item) => {
+          if (typeof item === "string") {
+            return item;
+          }
+
+          if (item && typeof item === "object") {
+            const record = item as Record<string, unknown>;
+            const label = asString(record.label);
+            const meaning = asString(record.meaning);
+
+            if (label && meaning) {
+              return `${label}：${meaning}`;
+            }
+
+            return label || meaning;
+          }
+
+          return String(item);
+        })
+        .filter(Boolean)
+    : [];
+
 const panel = (style: SubjectStyle): CSSProperties => ({
   borderRadius: 28,
   background: "rgba(7, 18, 25, 0.68)",
@@ -212,9 +237,9 @@ export const FormulaBoard = ({
 }) => {
   const expression =
     asString(scene.payload.boardExpression) || asString(scene.payload.lawCard) || asString(scene.payload.narration);
-  const cards = asStringArray(scene.payload.variableCards).length
-    ? asStringArray(scene.payload.variableCards)
-    : asStringArray(scene.payload.keyPoints);
+  const cards = asDisplayArray(scene.payload.variableCards).length
+    ? asDisplayArray(scene.payload.variableCards)
+    : asDisplayArray(scene.payload.keyPoints);
 
   return (
     <div style={{ ...panel(style), padding: 36, minHeight: 720 }}>
@@ -373,6 +398,64 @@ export const MotionDiagram = ({
   );
 };
 
+export const OpticsRayDiagram = ({
+  scene,
+  style,
+}: {
+  scene: RenderPackageScene;
+  style: SubjectStyle;
+}) => {
+  const frame = useCurrentFrame();
+  const reveal = revealValue(frame, 4);
+  const law = asString(scene.payload.lawCard, "n1 sin i = n2 sin r");
+  const note = asString(scene.payload.observationNote, asString(scene.payload.narration));
+  const incidentEnd = interpolate(reveal, [0, 1], [150, 315], clamp);
+  const refractedEnd = interpolate(reveal, [0, 1], [365, 525], clamp);
+
+  return (
+    <div style={{ ...panel(style), padding: 28, minHeight: 760 }}>
+      <div style={{ color: style.accent, fontSize: 28, fontWeight: 900 }}>光路折射</div>
+      <svg width="100%" height="560" viewBox="0 0 660 560" style={{ marginTop: 18 }}>
+        <defs>
+          <marker
+            id="optics-arrow"
+            markerWidth="18"
+            markerHeight="18"
+            refX="16"
+            refY="9"
+            orient="auto"
+            markerUnits="userSpaceOnUse"
+          >
+            <path d="M 0 0 L 18 9 L 0 18 z" fill={style.accent} />
+          </marker>
+        </defs>
+        <rect x="42" y="54" width="576" height="216" rx="30" fill="rgba(255,255,255,0.07)" />
+        <rect x="42" y="270" width="576" height="226" rx="30" fill={`${style.accent}20`} />
+        <line x1="54" y1="270" x2="606" y2="270" stroke="#ffffff" strokeWidth="5" opacity="0.82" />
+        <line x1="330" y1="62" x2="330" y2="496" stroke={style.secondary} strokeWidth="4" strokeDasharray="13 12" opacity="0.95" />
+        <line x1="150" y1="86" x2={incidentEnd} y2="270" stroke={style.secondary} strokeWidth="10" strokeLinecap="round" markerEnd="url(#optics-arrow)" />
+        <line x1="330" y1="270" x2={refractedEnd} y2="456" stroke={style.accent} strokeWidth="10" strokeLinecap="round" markerEnd="url(#optics-arrow)" />
+        <circle cx="330" cy="270" r="15" fill="#ffffff" />
+        <path d="M 330 206 A 64 64 0 0 0 282 228" fill="none" stroke={style.secondary} strokeWidth="4" />
+        <path d="M 330 334 A 64 64 0 0 1 376 314" fill="none" stroke={style.accent} strokeWidth="4" />
+        <text x="66" y="104" fill="#ffffff" fontSize="30" fontWeight="900">空气</text>
+        <text x="66" y="326" fill="#ffffff" fontSize="30" fontWeight="900">水 / 玻璃</text>
+        <text x="346" y="150" fill={style.secondary} fontSize="24" fontWeight="900">法线</text>
+        <text x="158" y="154" fill={style.secondary} fontSize="26" fontWeight="900">入射光线</text>
+        <text x="430" y="388" fill={style.accent} fontSize="26" fontWeight="900">折射光线</text>
+        <text x="254" y="224" fill="#ffffff" fontSize="22" fontWeight="900">i</text>
+        <text x="384" y="338" fill="#ffffff" fontSize="22" fontWeight="900">r</text>
+      </svg>
+      <div style={{ padding: "20px 24px", borderRadius: 24, background: "rgba(255,255,255,0.08)", fontSize: 36, fontWeight: 900 }}>
+        {law}
+      </div>
+      <div style={{ marginTop: 14, color: style.ink, opacity: 0.86, fontSize: 25, lineHeight: 1.32 }}>
+        {note}
+      </div>
+    </div>
+  );
+};
+
 export const ParticleLab = ({
   scene,
   style,
@@ -447,6 +530,9 @@ export const renderVisualModule = ({
   }
   if (module === "motion-diagram") {
     return <MotionDiagram scene={scene} style={style} />;
+  }
+  if (module === "optics-ray") {
+    return <OpticsRayDiagram scene={scene} style={style} />;
   }
   if (module === "particle-lab") {
     return <ParticleLab scene={scene} style={style} />;

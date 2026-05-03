@@ -50,7 +50,7 @@ const takeDistinct = (values: string[], limit = 3) =>
   Array.from(new Set(values.filter((value) => value.trim().length > 0))).slice(0, limit);
 
 const physicsMeaningMap: Record<string, string> = {
-  F: "合力",
+  F: "力",
   m: "质量",
   a: "加速度",
   v: "速度",
@@ -60,6 +60,9 @@ const physicsMeaningMap: Record<string, string> = {
   I: "电流",
   U: "电压",
   R: "电阻",
+  n: "折射率",
+  i: "入射角",
+  r: "折射角",
 };
 
 const inferVariableCards = (formula: string): VariableCard[] => {
@@ -97,7 +100,7 @@ const buildMathPayload = ({
   scene: TimedRenderScene;
 }) => ({
   ...buildBasePayload({ canonicalTitle, scene }),
-  boardTitle: "集合表达",
+  boardTitle: `${canonicalTitle} 表达`,
   boardExpression: firstText(
     sourceSummary.formulas,
     firstText(sourceSummary.examples, canonicalTitle),
@@ -110,11 +113,11 @@ const buildMathPayload = ({
   exampleChips: takeDistinct(sourceSummary.examples, 3),
   misconceptionNote: firstText(
     sourceSummary.misconceptions,
-    "注意区分对象整体与单个元素。",
+    `注意区分 ${canonicalTitle} 和相近概念。`,
   ),
   nextHint: firstText(
     sourceSummary.nextConnections,
-    "继续关注条件、关系和图像之间的联系。",
+    `继续关注 ${canonicalTitle} 的条件、关系和表示方式。`,
   ),
 });
 
@@ -143,7 +146,7 @@ const buildPhysicsPayload = ({
     ]),
     observationNote: firstText(
       sourceSummary.visualizationHints,
-      "先看受力方向，再判断变量联动。",
+      `用变量、箭头或过程示意表达 ${canonicalTitle}。`,
     ),
   };
 };
@@ -162,7 +165,10 @@ const buildChemistryPayload = ({
     sourceSummary.formulas,
     firstText(sourceSummary.examples, canonicalTitle),
   ),
-  particleLabels: ["反应前", "反应后"],
+  particleLabels: takeDistinct(
+    [...sourceSummary.definitions, ...sourceSummary.principles],
+    3,
+  ),
   labNotes: takeDistinct([
     ...sourceSummary.principles,
     ...sourceSummary.misconceptions,
@@ -170,7 +176,7 @@ const buildChemistryPayload = ({
   ]),
   compareFocus: firstText(
     sourceSummary.definitions,
-    "既要看宏观现象，也要看微观粒子变化。",
+    `先明确 ${canonicalTitle} 的对象、条件和变化关系。`,
   ),
 });
 

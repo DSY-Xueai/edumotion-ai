@@ -56,7 +56,7 @@ describe("getSubjectAdapter", () => {
 
     expect(scene.component).toBe("math/definition");
     expect(scene.payload).toMatchObject({
-      boardTitle: "集合表达",
+      boardTitle: "集合的概念 表达",
       boardExpression: "A={1,2,3}",
       keyPoints: expect.arrayContaining([
         "一般地，指定的某些对象的全体称为一个集合。",
@@ -148,7 +148,10 @@ describe("getSubjectAdapter", () => {
         expect.stringContaining("原子守恒"),
         expect.stringContaining("电子"),
       ]),
-      particleLabels: expect.arrayContaining(["反应前", "反应后"]),
+      particleLabels: expect.arrayContaining([
+        expect.stringContaining("氧化还原反应"),
+        expect.stringContaining("电子"),
+      ]),
     });
   });
 });
