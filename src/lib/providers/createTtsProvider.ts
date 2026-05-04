@@ -1,4 +1,7 @@
 import type { TtsProvider } from "../audio/ttsProvider";
+import { splitNarrationText } from "../audio/splitNarrationText";
+import { concatenateWavFiles, readWavInfo } from "../audio/wav";
+import type { TtsChunkTiming } from "../audio/schema";
 import { readProviderConfig } from "./config";
 
 const parseTimeMs = (value: unknown): number | undefined => {
@@ -64,6 +67,43 @@ const readErrorMessage = async (response: Response) => {
 
   return body || response.statusText;
 };
+
+const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
+
+const decodeBase64 = (value: string): Uint8Array<ArrayBuffer> =>
+  new Uint8Array(Buffer.from(value, "base64"));
+
+const buildQwenSynthesizedSegment = ({
+  text,
+  audioBytes,
+}: {
+  text: string;
+  audioBytes: Uint8Array<ArrayBuffer>;
+}) => {
+  const durationMs = readWavInfo(audioBytes).durationMs;
+
+  return {
+    audioFile: {
+      extension: "wav",
+      data: audioBytes,
+    },
+    durationMs,
+    chunks: [
+      {
+        text,
+        startMs: 0,
+        endMs: durationMs,
+      },
+    ],
+  };
+};
+
+const qwenGenerationOptions = (config: ReturnType<typeof readProviderConfig>) => ({
+  seed: config.QWEN_TTS_SEED,
+  do_sample: config.QWEN_TTS_DO_SAMPLE,
+  temperature: config.QWEN_TTS_TEMPERATURE,
+  top_p: config.QWEN_TTS_TOP_P,
+});
 
 const mockSceneDurationMs: Record<string, number> = {
   hook: 12000,
@@ -139,6 +179,114 @@ const createMockWavBytes = (durationMs: number) => {
 
 export const createTtsProvider = (): TtsProvider => {
   const config = readProviderConfig();
+
+  if (config.TTS_PROVIDER === "qwen-local") {
+    return {
+      synthesizeSegments: async ({ segments }) => {
+        const response = await fetch(
+          `${trimTrailingSlash(config.QWEN_TTS_BASE_URL)}/v1/audio/speech-batch`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              items: segments.map((segment) => ({
+                id: segment.id,
+                text: segment.text,
+                speaker: config.QWEN_TTS_SPEAKER,
+                language: config.QWEN_TTS_LANGUAGE,
+                instruct: config.QWEN_TTS_INSTRUCT,
+              })),
+              ...qwenGenerationOptions(config),
+            }),
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Qwen local TTS batch generation failed: ${response.status} ${await readErrorMessage(
+              response,
+            )}`,
+          );
+        }
+
+        const payload = (await response.json()) as {
+          items?: Array<{ id?: unknown; audioBase64?: unknown }>;
+        };
+        const items = Array.isArray(payload.items) ? payload.items : [];
+
+        return segments.map((segment) => {
+          const item = items.find((candidate) => candidate.id === segment.id);
+
+          if (!item || typeof item.audioBase64 !== "string") {
+            throw new Error(`Qwen local TTS batch response missing audio for ${segment.id}`);
+          }
+
+          return buildQwenSynthesizedSegment({
+            text: segment.text,
+            audioBytes: decodeBase64(item.audioBase64),
+          });
+        });
+      },
+      synthesizeSegment: async ({ segment }) => {
+        const textParts = splitNarrationText(segment.text);
+        const audioFiles: Uint8Array<ArrayBuffer>[] = [];
+        const chunks: TtsChunkTiming[] = [];
+        let currentStartMs = 0;
+
+        for (const textPart of textParts) {
+          const response = await fetch(
+            `${trimTrailingSlash(config.QWEN_TTS_BASE_URL)}/v1/audio/speech`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                text: textPart,
+                speaker: config.QWEN_TTS_SPEAKER,
+                language: config.QWEN_TTS_LANGUAGE,
+                instruct: config.QWEN_TTS_INSTRUCT,
+                ...qwenGenerationOptions(config),
+              }),
+            },
+          );
+
+          if (!response.ok) {
+            throw new Error(
+              `Qwen local TTS generation failed: ${response.status} ${await readErrorMessage(
+                response,
+              )}`,
+            );
+          }
+
+          const audioBytes: Uint8Array<ArrayBuffer> = new Uint8Array(
+            await response.arrayBuffer(),
+          );
+          const durationMs = readWavInfo(audioBytes).durationMs;
+          const endMs = currentStartMs + durationMs;
+
+          audioFiles.push(audioBytes);
+          chunks.push({
+            text: textPart,
+            startMs: currentStartMs,
+            endMs,
+          });
+          currentStartMs = endMs;
+        }
+
+        return {
+          audioFile: {
+            extension: "wav",
+            data: concatenateWavFiles(audioFiles),
+          },
+          durationMs: currentStartMs,
+          chunks,
+        };
+      },
+    };
+  }
 
   if (config.TTS_PROVIDER === "openai" && config.PIPELINE_PROVIDER_MODE === "openai") {
     return {

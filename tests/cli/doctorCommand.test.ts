@@ -49,4 +49,22 @@ describe("doctor command", () => {
     expect(result.stdout).toContain('"ttsProvider": "mock"');
     expect(result.stdout).toContain('"mockAudioFallbackActive": true');
   });
+
+  it("reports local Qwen TTS settings", async () => {
+    const result = await runCli(["doctor"], {
+      PIPELINE_PROVIDER_MODE: "mock",
+      TTS_PROVIDER: "qwen-local",
+      QWEN_TTS_BASE_URL: "http://127.0.0.1:8020",
+      QWEN_TTS_SPEAKER: "Vivian",
+      QWEN_TTS_LANGUAGE: "Chinese",
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('"ttsProvider": "qwen-local"');
+    expect(result.stdout).toContain('"effectiveTtsMode": "qwen-local"');
+    expect(result.stdout).toContain('"qwenTtsBaseUrl": "http://127.0.0.1:8020"');
+    expect(result.stdout).toContain('"qwenTtsSpeaker": "Vivian"');
+    expect(result.stdout).toContain('"qwenTtsLanguage": "Chinese"');
+    expect(result.stdout).toContain("ready to generate spoken narration audio");
+  });
 });

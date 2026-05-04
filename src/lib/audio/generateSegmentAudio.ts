@@ -25,14 +25,25 @@ export const generateSegmentAudio = async ({
 
   await mkdir(audioDirectory, { recursive: true });
 
+  const approvedSegments = approvedLesson.approvedScript;
+  const synthesizedResults = provider.synthesizeSegments
+    ? await provider.synthesizeSegments({
+        topicId,
+        segments: approvedSegments,
+      })
+    : await Promise.all(
+        approvedSegments.map((segment) =>
+          provider.synthesizeSegment({
+            topicId,
+            segment,
+          }),
+        ),
+      );
   const segments = [];
 
-  for (const segment of approvedLesson.approvedScript) {
+  for (const [index, segment] of approvedSegments.entries()) {
     const synthesized = synthesizedSegmentSchema.parse(
-      await provider.synthesizeSegment({
-        topicId,
-        segment,
-      }),
+      synthesizedResults[index],
     );
     const extension = synthesized.audioFile.extension.replace(/^\.+/, "");
     const fileName = `${segment.id}.${extension}`;

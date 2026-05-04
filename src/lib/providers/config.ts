@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const providerModeSchema = z.enum(["mock", "openai"]);
 export const renderModeSchema = z.enum(["mock", "real"]);
-export const ttsProviderSchema = z.enum(["mock", "openai"]);
+export const ttsProviderSchema = z.enum(["mock", "openai", "qwen-local"]);
 
 const baseEnvSchema = z.object({
   OPENAI_API_KEY: z.string().min(1).optional(),
@@ -14,6 +14,17 @@ const baseEnvSchema = z.object({
   TTS_VOICE: z.string().min(1).default("alloy"),
   TTS_RESPONSE_FORMAT: z.string().min(1).default("wav"),
   ALIGNMENT_MODEL: z.string().min(1).default("gpt-4o-transcribe"),
+  QWEN_TTS_BASE_URL: z.string().min(1).default("http://127.0.0.1:8020"),
+  QWEN_TTS_SPEAKER: z.string().min(1).default("Vivian"),
+  QWEN_TTS_LANGUAGE: z.string().min(1).default("Chinese"),
+  QWEN_TTS_INSTRUCT: z.string().optional(),
+  QWEN_TTS_SEED: z.coerce.number().int().nonnegative().default(20260504),
+  QWEN_TTS_DO_SAMPLE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  QWEN_TTS_TEMPERATURE: z.coerce.number().positive().default(0.2),
+  QWEN_TTS_TOP_P: z.coerce.number().positive().max(1).default(0.8),
   PIPELINE_PROVIDER_MODE: providerModeSchema.default("mock"),
   RENDER_OUTPUT_MODE: renderModeSchema.default("mock"),
 });
@@ -30,7 +41,7 @@ const envSchema = baseEnvSchema.superRefine((env, ctx) => {
 
 export type ProviderConfig = z.infer<typeof envSchema>;
 export type ProviderConfigInspection = ReturnType<typeof inspectProviderConfig>;
-export type EffectiveTtsMode = "mock" | "openai";
+export type EffectiveTtsMode = "mock" | "openai" | "qwen-local";
 
 const normalizeEnv = (env: Record<string, string | undefined>) =>
   Object.fromEntries(
@@ -48,9 +59,11 @@ export const resolveEffectiveTtsMode = ({
   PIPELINE_PROVIDER_MODE,
   TTS_PROVIDER,
 }: Pick<ProviderConfig, "PIPELINE_PROVIDER_MODE" | "TTS_PROVIDER">): EffectiveTtsMode =>
-  PIPELINE_PROVIDER_MODE === "openai" && TTS_PROVIDER === "openai"
-    ? "openai"
-    : "mock";
+  TTS_PROVIDER === "qwen-local"
+    ? "qwen-local"
+    : PIPELINE_PROVIDER_MODE === "openai" && TTS_PROVIDER === "openai"
+      ? "openai"
+      : "mock";
 
 export const inspectProviderConfig = (
   env: Record<string, string | undefined> = process.env,
@@ -65,6 +78,9 @@ export const inspectProviderConfig = (
     effectiveTtsMode,
     mockAudioFallbackActive: effectiveTtsMode === "mock",
     ttsVoice: parsed.TTS_VOICE,
+    qwenTtsBaseUrl: parsed.QWEN_TTS_BASE_URL,
+    qwenTtsSpeaker: parsed.QWEN_TTS_SPEAKER,
+    qwenTtsLanguage: parsed.QWEN_TTS_LANGUAGE,
     openaiBaseUrl: parsed.OPENAI_BASE_URL,
     requiresApiKey: parsed.PIPELINE_PROVIDER_MODE === "openai",
     apiKeyConfigured: Boolean(parsed.OPENAI_API_KEY),
@@ -80,7 +96,11 @@ export const assertTtsReadyForFinalRender = ({
 }) => {
   const inspection = inspectProviderConfig(env);
 
-  if (allowMockAudio || inspection.effectiveTtsMode === "openai") {
+  if (
+    allowMockAudio ||
+    inspection.effectiveTtsMode === "openai" ||
+    inspection.effectiveTtsMode === "qwen-local"
+  ) {
     return inspection;
   }
 

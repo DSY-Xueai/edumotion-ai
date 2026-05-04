@@ -84,6 +84,22 @@ set RENDER_OUTPUT_MODE=real
 - `TTS` 使用本地 mock wav fallback
 - 仍然可以渲染真实 mp4 并保留字幕时序
 
+### Qwen3-TTS 本地配音模式
+
+项目支持通过本地 FastAPI 服务调用 Qwen3-TTS：
+
+```bash
+set PIPELINE_PROVIDER_MODE=mock
+set TTS_PROVIDER=qwen-local
+set QWEN_TTS_BASE_URL=http://127.0.0.1:8020
+set QWEN_TTS_SPEAKER=Vivian
+set QWEN_TTS_LANGUAGE=Chinese
+set RENDER_OUTPUT_MODE=real
+npm run qwen:tts
+```
+
+服务实现位于 `tools/qwen_tts_server/server.py`，安装与模型下载见 `docs/qwen-tts-local.md`。`qwen-local` 会把每段旁白拆成中文短句，逐句合成后按真实 WAV 时长生成字幕对齐。
+
 ## 诊断
 
 ### 基础环境诊断

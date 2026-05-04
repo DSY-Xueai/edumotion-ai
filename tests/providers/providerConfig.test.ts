@@ -53,6 +53,33 @@ describe("readProviderConfig", () => {
     });
   });
 
+  it("accepts local Qwen TTS without requiring an OpenAI API key", () => {
+    expect(
+      readProviderConfig({
+        PIPELINE_PROVIDER_MODE: "mock",
+        TTS_PROVIDER: "qwen-local",
+      }),
+    ).toMatchObject({
+      PIPELINE_PROVIDER_MODE: "mock",
+      TTS_PROVIDER: "qwen-local",
+      QWEN_TTS_BASE_URL: "http://127.0.0.1:8020",
+      QWEN_TTS_SPEAKER: "Vivian",
+      QWEN_TTS_LANGUAGE: "Chinese",
+    });
+
+    expect(
+      inspectProviderConfig({
+        PIPELINE_PROVIDER_MODE: "mock",
+        TTS_PROVIDER: "qwen-local",
+      }),
+    ).toMatchObject({
+      ttsProvider: "qwen-local",
+      effectiveTtsMode: "qwen-local",
+      mockAudioFallbackActive: false,
+      requiresApiKey: false,
+    });
+  });
+
   it("inspects provider runtime requirements without throwing", () => {
     expect(
       inspectProviderConfig({
@@ -105,6 +132,15 @@ describe("readProviderConfig", () => {
           PIPELINE_PROVIDER_MODE: "openai",
           OPENAI_API_KEY: "test-key",
           TTS_PROVIDER: "openai",
+        },
+      }),
+    ).not.toThrow();
+
+    expect(() =>
+      assertTtsReadyForFinalRender({
+        env: {
+          PIPELINE_PROVIDER_MODE: "mock",
+          TTS_PROVIDER: "qwen-local",
         },
       }),
     ).not.toThrow();

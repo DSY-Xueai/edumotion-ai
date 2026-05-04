@@ -67,6 +67,22 @@ describe("mock providers", () => {
     expect(result.scriptSegments).toHaveLength(6);
   });
 
+  it("returns projectile motion research content for the local preview topic", async () => {
+    useMockProviders();
+    const provider = await createResearchProvider();
+
+    const result = await provider.researchTopic({
+      topicId: "physics-b2-ch5-topic-001",
+      promptContext: "平抛运动",
+    });
+
+    expect(result.canonicalTitle).toBe("平抛运动");
+    expect(result.definitions.join(" ")).toContain("水平初速度");
+    expect(result.formulas).toContain("x=v₀t");
+    expect(result.formulas).toContain("y=1/2gt²");
+    expect(result.visualizationHints.join(" ")).toContain("抛物线");
+  });
+
   it("builds a chemistry draft with compare and process scenes", async () => {
     useMockProviders();
     const provider = createDraftProvider();

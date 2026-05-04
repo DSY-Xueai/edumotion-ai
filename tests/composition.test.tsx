@@ -13,7 +13,13 @@ vi.mock("remotion", () => {
       children: ReactNode;
       [key: string]: unknown;
     }) => <div {...props}>{children}</div>,
-    Sequence: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+    Sequence: ({
+      children,
+      premountFor,
+    }: {
+      children: ReactNode;
+      premountFor?: number;
+    }) => <div data-premount-for={premountFor}>{children}</div>,
     Audio: ({ src }: { src: string }) => <audio data-src={src} />,
     Img: ({ src }: { src: string }) => <img src={src} alt="" />,
     Easing: {
@@ -171,6 +177,76 @@ describe("AutoVideoComposition", () => {
     expect(html).toContain("光路折射");
     expect(html).toContain("入射光线");
     expect(html).toContain("折射光线");
+  });
+
+  it("does not premount audio sequences because premounting causes overlapping narration", () => {
+    const spec: RenderPackage = {
+      topicId: "topic-audio",
+      lessonVersion: 1,
+      canonicalTitle: "Audio Timing",
+      approvedAt: "2026-05-04T00:00:00.000Z",
+      generatedAt: "2026-05-04T00:00:00.000Z",
+      totalDurationMs: 2000,
+      meta: {
+        topicId: "topic-audio",
+        subject: "physics",
+        aspectRatio: "9:16",
+      },
+      subject: "physics",
+      themeTokens: {
+        palette: "physics-lab",
+        typography: "physics-sans",
+        accent: "#1a7f64",
+      },
+      audioTracks: [
+        {
+          id: "seg-1",
+          file: "generated/topic-audio/audio/seg-1.wav",
+          sourceFile: "workspace/topic-audio/audio/seg-1.wav",
+          startMs: 0,
+          endMs: 1000,
+          durationMs: 1000,
+        },
+        {
+          id: "seg-2",
+          file: "generated/topic-audio/audio/seg-2.wav",
+          sourceFile: "workspace/topic-audio/audio/seg-2.wav",
+          startMs: 1000,
+          endMs: 2000,
+          durationMs: 1000,
+        },
+      ],
+      subtitleTrack: {
+        topicId: "topic-audio",
+        subject: "physics",
+        cues: [],
+      },
+      scenes: [
+        {
+          id: "scene-1",
+          kind: "hook",
+          component: "physics/hook",
+          durationInFrames: 60,
+          payload: {
+            title: "Audio Timing",
+            narration: "第一段。",
+          },
+        },
+      ],
+      durationInFrames: 60,
+    };
+
+    const html = renderToStaticMarkup(<AutoVideoComposition {...spec} />);
+
+    expect(html).toContain(
+      '<div><audio data-src="/static/generated/topic-audio/audio/seg-1.wav"></audio></div>',
+    );
+    expect(html).toContain(
+      '<div><audio data-src="/static/generated/topic-audio/audio/seg-2.wav"></audio></div>',
+    );
+    expect(html).not.toContain(
+      '<div data-premount-for="30"><audio data-src="/static/generated/topic-audio/audio/seg-1.wav"></audio></div>',
+    );
   });
 
   it("renders object variable cards as readable label and meaning text", () => {

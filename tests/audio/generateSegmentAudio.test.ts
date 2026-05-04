@@ -183,4 +183,102 @@ describe("generateSegmentAudio", () => {
       ),
     ).resolves.toBeUndefined();
   });
+
+  it("uses batch synthesis when the provider supports it", async () => {
+    const topicId = "audio-topic-batch-001";
+
+    await saveResearch({
+      topicId,
+      scope: "topic",
+      canonicalTitle: "平抛运动",
+      definitions: ["平抛运动可以分解。"],
+      formulas: [],
+      principles: ["水平匀速，竖直自由落体。"],
+      examples: ["小球水平飞出。"],
+      misconceptions: [],
+      prerequisites: [],
+      nextConnections: [],
+      visualizationHints: [],
+      sources: [
+        {
+          title: "教材",
+          url: "https://example.com/textbook",
+          sourceType: "official",
+          publisher: "PEP",
+          retrievedAt: "2026-05-04",
+          quoteOrSummary: "平抛运动。",
+        },
+      ],
+    });
+
+    await saveDraft({
+      topicId,
+      toneProfile: "clear",
+      durationTargetSec: 20,
+      hook: "先看现象。",
+      summary: "平抛运动。",
+      scriptSegments: [
+        { id: "seg-1", kind: "hook", text: "先看现象。" },
+        { id: "seg-2", kind: "rule", text: "水平匀速。" },
+      ],
+      storyboardScenes: [
+        { id: "scene-1", type: "hook", segmentIds: ["seg-1"], durationSec: 4 },
+        { id: "scene-2", type: "rule", segmentIds: ["seg-2"], durationSec: 4 },
+      ],
+      subtitleDraft: [
+        { id: "sub-1", segmentId: "seg-1", text: "先看现象。" },
+        { id: "sub-2", segmentId: "seg-2", text: "水平匀速。" },
+      ],
+      visualPlan: [],
+      qaNotes: [],
+    });
+
+    await approveDraft({
+      topicId,
+      approvedAt: "2026-05-04T00:00:00.000Z",
+      reviewNotes: [],
+    });
+
+    const singleCalls: string[] = [];
+    const batchCalls: string[][] = [];
+    const manifest = await generateSegmentAudio({
+      topicId,
+      provider: {
+        synthesizeSegment: async ({ segment }) => {
+          singleCalls.push(segment.id);
+          throw new Error("single synthesis should not be used");
+        },
+        synthesizeSegments: async ({ segments }) => {
+          batchCalls.push(segments.map((segment) => segment.id));
+          return segments.map((segment, index) => ({
+            audioFile: {
+              extension: "wav",
+              data: Buffer.from(`audio-${segment.id}`),
+            },
+            durationMs: index === 0 ? 1000 : 1200,
+            chunks: [{ text: segment.text, startMs: 0, endMs: index === 0 ? 1000 : 1200 }],
+          }));
+        },
+      },
+    });
+
+    expect(singleCalls).toEqual([]);
+    expect(batchCalls).toEqual([["seg-1", "seg-2"]]);
+    expect(manifest.subtitleTrack.cues).toEqual([
+      {
+        id: "seg-1:1",
+        segmentId: "seg-1",
+        text: "先看现象。",
+        startMs: 0,
+        endMs: 1000,
+      },
+      {
+        id: "seg-2:1",
+        segmentId: "seg-2",
+        text: "水平匀速。",
+        startMs: 1000,
+        endMs: 2200,
+      },
+    ]);
+  });
 });

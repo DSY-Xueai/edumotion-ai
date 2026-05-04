@@ -51,6 +51,17 @@ const topicFixtures: Record<string, MockResearchContent> = {
     misconceptions: ["路程和位移总是一样。"],
     visualizationHints: ["把时间、位移和速度做成联动仪表。"],
   },
+  "physics-b2-ch5-topic-001": {
+    canonicalTitle: "平抛运动",
+    definitions: ["平抛运动是物体以水平初速度抛出，只在重力作用下的曲线运动。"],
+    formulas: ["x=v₀t", "y=1/2gt²"],
+    principles: [
+      "平抛运动可以分解为水平方向匀速直线运动和竖直方向自由落体运动。",
+    ],
+    examples: ["桌边小球水平飞出后，一边向前运动，一边向下落到地面。"],
+    misconceptions: ["把轨迹弯曲误认为水平方向也有加速度。"],
+    visualizationHints: ["用抛物线轨迹、水平位移尺和竖直下落尺同步展示。"],
+  },
   "chemistry-b1-ch1-topic-001": {
     canonicalTitle: "物质的分类及转化",
     definitions: ["可以按照组成、性质和用途对物质进行分类。"],

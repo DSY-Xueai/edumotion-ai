@@ -4,11 +4,25 @@
 - `Root` 只注册 `AutoVideo`；`AutoVideoComposition` 消费 `RenderPackage` 并委托给 `AdaptiveMotionComposition`。
 - 当前画面系统是 adaptive MotionLab：按学科、场景类型、payload 内容和 topic 语义选择视觉模块。
 - 生成产物工作区已改为视频批次归档：默认写入 `workspace/videos/YYYY-M-D/NN/<topicId>/`，其中 `NN` 为当天从 `01` 开始递增的两位序号。
+- TTS 现支持 `mock`、`openai`、`qwen-local`；`qwen-local` 通过项目内 FastAPI 包装本地 Qwen3-TTS CustomVoice，默认音色 `Vivian`。
+- 若要求全片音色严格一致，`qwen-local` 可启动 Qwen3-TTS Base 模型，用参考音频提取固定 speaker embedding 后生成全片配音。
 - 旧 article parser / normalizer / scene components / `src/subjects/*/renderScene.tsx` / `CircularMotionPreview` 已退役。
 - `zod` 固定为 `4.3.6`，与 Remotion 当前依赖保持一致。
 
 # 本轮变更
 
+- 新增 Qwen3-TTS 本地配音链路：
+  - `TTS_PROVIDER=qwen-local` 时不要求 `OPENAI_API_KEY`，默认调用 `http://127.0.0.1:8020/v1/audio/speech`。
+  - 默认音色为 Qwen3-TTS CustomVoice 的 `Vivian`，语言默认 `Chinese`。
+  - 旁白改为同一 topic 的 approved script 一次性 batch 调用 Qwen，并支持固定 `QWEN_TTS_SEED` 与采样参数。
+  - 实测 CustomVoice 预设 `Vivian` 在多段生成时仍可能出现音色漂移；已新增 Base clone 服务路径，使用参考音频固定 speaker embedding 生成全片。
+  - 每个 script segment 仍保存独立 WAV，并按每段 WAV 真实时长生成字幕 chunks。
+  - 新增 WAV header 读取和同格式 WAV 拼接工具，避免用字符长度估算音频时长。
+  - 新增 `tools/qwen_tts_server/server.py`，作为项目调用 Qwen3-TTS 的 FastAPI 服务。
+  - 新增 `docs/qwen-tts-local.md` 记录 conda、pip、ModelScope 下载、服务启动和项目环境变量。
+- 修复 Remotion 音频叠播问题：音频 `<Sequence>` 不再使用 `premountFor`，避免相邻旁白在切换前被预挂载而重叠播放；画面 Sequence 保持预挂载。
+- Qwen 本地 Python 环境已验证 CUDA 版 PyTorch：`.venv-qwen` 中 `torch 2.9.0+cu128` 可识别 RTX 4060 Laptop GPU；若显示 `+cpu`，需要按 `docs/qwen-tts-local.md` 安装 cu128 wheel。
+- 课程表新增物理 topic `physics-b2-ch5-topic-001`：`平抛运动`，并为 mock research 增加平抛运动专属定义、公式和可视化提示。
 - 改造 topic workspace 路径规则：
   - 默认根目录从 `workspace/topics` 改为 `workspace/videos`。
   - 新 topic 会写入 `workspace/videos/YYYY-M-D/01/<topicId>/`；同一天继续生成新视频时依次使用 `02`、`03`。
@@ -40,6 +54,11 @@
 - `src/compositions/adaptiveMotion/selectVisualModule.ts`
 - `src/compositions/adaptiveMotion/visualModules.tsx`
 - `src/lib/providers/createDraftProvider.ts`
+- `src/lib/audio/splitNarrationText.ts`
+- `src/lib/audio/wav.ts`
+- `tools/qwen_tts_server/server.py`
+- `tools/qwen_tts_server/requirements.txt`
+- `docs/qwen-tts-local.md`
 - `src/lib/rendering/subjectAdapter.ts`
 - `src/lib/rendering/buildRenderPackage.ts`
 - `src/lib/rendering/saveRenderPackage.ts`
@@ -51,6 +70,10 @@
 - `tests/composition.test.tsx`
 - `tests/draft/generateDraft.test.ts`
 - `tests/rendering/subjectAdapterRegistry.test.ts`
+- `tests/providers/createTtsProvider.test.ts`
+- `tests/providers/providerConfig.test.ts`
+- `tests/providers/createMockProviders.test.ts`
+- `tests/cli/doctorCommand.test.ts`
 - `vitest.config.ts`
 
 # 运行入口
@@ -63,6 +86,8 @@
 - 渲染已审核 topic：`npm run cli -- produce render --topic-id <topicId>`
 - 使用 mock audio 预览：`npm run cli -- produce render --topic-id <topicId> --allow-mock-audio`
 - 查看 topic 状态：`npm run cli -- topic status --topic-id <topicId>`
+- 启动 Qwen3-TTS 本地服务：`npm run qwen:tts`
+- Qwen 本地配音示例 topic：`physics-b2-ch5-topic-001`（平抛运动）
 
 # 当前注意事项
 
@@ -74,3 +99,5 @@
 - `formula-board` 只适合真实公式表达，不适合把普通标题当公式展示。
 - 根目录 `workspace/` 和 `public/generated/` 是生成产物目录，已被 git 忽略。
 - `--allow-mock-audio` 只适合画面链路验证；正式成片需要配置真实 TTS。
+- 使用 `qwen-local` 前需要单独启动本地 Qwen3-TTS FastAPI 服务，并确保 `QWEN_TTS_BASE_URL` 与服务端口一致。
+- `Qwen3-TTS-12Hz-1.7B-Base` 仅作为后续声音克隆预留，当前项目默认配音链路只走 `Qwen3-TTS-12Hz-1.7B-CustomVoice` 的 `Vivian`。

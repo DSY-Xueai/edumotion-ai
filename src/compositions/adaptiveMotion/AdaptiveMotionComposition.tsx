@@ -216,7 +216,6 @@ export const AdaptiveMotionComposition = (props: RenderPackage) => {
           key={track.id}
           from={Math.round((track.startMs / 1000) * fps)}
           durationInFrames={Math.max(1, Math.round((track.durationMs / 1000) * fps))}
-          premountFor={fps}
         >
           <Audio src={staticFile(track.file)} />
         </Sequence>

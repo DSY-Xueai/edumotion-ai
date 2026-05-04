@@ -66,6 +66,19 @@
       "orderIndex": 0
     },
     {
+      "id": "physics-b2-ch5-topic-001",
+      "subject": "physics",
+      "edition": "pep-2019",
+      "volume": "b2",
+      "chapter": "ch5",
+      "section": "sec1",
+      "title": "平抛运动",
+      "nodeType": "topic",
+      "parentId": "physics-b2-ch5-section-001",
+      "nextTopicId": "physics-b2-ch6-topic-001",
+      "orderIndex": 0
+    },
+    {
       "id": "chemistry-b1-ch1-topic-001",
       "subject": "chemistry",
       "edition": "pep-2019",
