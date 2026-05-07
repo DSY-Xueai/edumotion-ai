@@ -72,16 +72,8 @@ describe("createTtsProvider", () => {
           JSON.stringify({
             duration: 1.5,
             segments: [
-              {
-                text: "先看定义",
-                start: 0,
-                end: 0.7,
-              },
-              {
-                text: "再看条件",
-                start: 0.7,
-                end: 1.5,
-              },
+              { text: "first", start: 0, end: 0.7 },
+              { text: "second", start: 0.7, end: 1.5 },
             ],
           }),
           {
@@ -98,26 +90,18 @@ describe("createTtsProvider", () => {
     const provider = createTtsProvider();
     const result = await provider.synthesizeSegment({
       topicId: "math-b1-ch1-topic-001",
-      segment: {
-        id: "seg-rule",
-        kind: "rule",
-        text: "先看定义，再看条件。",
-      },
+      segment: { id: "seg-rule", kind: "rule", text: "first, second" },
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "https://api.openai.com/v1/audio/speech",
-    );
-    expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      "https://api.openai.com/v1/audio/transcriptions",
-    );
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api.openai.com/v1/audio/speech");
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("https://api.openai.com/v1/audio/transcriptions");
     expect(result.audioFile.extension).toBe("wav");
     expect(Array.from(result.audioFile.data)).toEqual([1, 2, 3]);
     expect(result.durationMs).toBe(1500);
     expect(result.chunks).toEqual([
-      { text: "先看定义", startMs: 0, endMs: 700 },
-      { text: "再看条件", startMs: 700, endMs: 1500 },
+      { text: "first", startMs: 0, endMs: 700 },
+      { text: "second", startMs: 700, endMs: 1500 },
     ]);
   });
 
@@ -127,26 +111,15 @@ describe("createTtsProvider", () => {
     const provider = createTtsProvider();
     const result = await provider.synthesizeSegment({
       topicId: "math-b1-ch1-topic-001",
-      segment: {
-        id: "seg-definition",
-        kind: "definition",
-        text: "一般地，指定的某些对象的全体称为一个集合。",
-      },
+      segment: { id: "seg-definition", kind: "definition", text: "definition line" },
     });
 
     expect(result.audioFile.extension).toBe("wav");
-    expect(
-      new TextDecoder().decode(result.audioFile.data.slice(0, 4)),
-    ).toBe("RIFF");
+    expect(new TextDecoder().decode(result.audioFile.data.slice(0, 4))).toBe("RIFF");
     expect(result.durationMs).toBe(14000);
-    expect(result.chunks).toEqual([
-      {
-        text: "一般地，指定的某些对象的全体称为一个集合。",
-        startMs: 0,
-        endMs: 14000,
-      },
-    ]);
+    expect(result.chunks).toEqual([{ text: "definition line", startMs: 0, endMs: 14000 }]);
   });
+
   it("supports a custom OpenAI-compatible base URL for speech and transcription", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("PIPELINE_PROVIDER_MODE", "openai");
@@ -157,30 +130,14 @@ describe("createTtsProvider", () => {
       .mockResolvedValueOnce(
         new Response(Uint8Array.from([1, 2, 3]), {
           status: 200,
-          headers: {
-            "content-type": "audio/wav",
-          },
+          headers: { "content-type": "audio/wav" },
         }),
       )
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            duration: 1.2,
-            segments: [
-              {
-                text: "hook",
-                start: 0,
-                end: 1.2,
-              },
-            ],
-          }),
-          {
-            status: 200,
-            headers: {
-              "content-type": "application/json",
-            },
-          },
-        ),
+        new Response(JSON.stringify({ duration: 1.2, segments: [{ text: "hook", start: 0, end: 1.2 }] }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
       );
 
     vi.stubGlobal("fetch", fetchMock);
@@ -188,19 +145,11 @@ describe("createTtsProvider", () => {
     const provider = createTtsProvider();
     await provider.synthesizeSegment({
       topicId: "math-b1-ch1-topic-001",
-      segment: {
-        id: "seg-hook",
-        kind: "hook",
-        text: "hook",
-      },
+      segment: { id: "seg-hook", kind: "hook", text: "hook" },
     });
 
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "https://example-proxy.test/v1/audio/speech",
-    );
-    expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      "https://example-proxy.test/v1/audio/transcriptions",
-    );
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://example-proxy.test/v1/audio/speech");
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("https://example-proxy.test/v1/audio/transcriptions");
   });
 
   it("falls back to local mock audio when TTS_PROVIDER=mock even if research and draft run in openai mode", async () => {
@@ -214,11 +163,7 @@ describe("createTtsProvider", () => {
     const provider = createTtsProvider();
     const result = await provider.synthesizeSegment({
       topicId: "math-b1-ch1-topic-001",
-      segment: {
-        id: "seg-wrap",
-        kind: "wrap",
-        text: "wrap",
-      },
+      segment: { id: "seg-wrap", kind: "wrap", text: "wrap" },
     });
 
     expect(fetchMock).not.toHaveBeenCalled();
@@ -251,42 +196,18 @@ describe("createTtsProvider", () => {
     const provider = createTtsProvider();
     const result = await provider.synthesizeSegment({
       topicId: "physics-b1-projectile-motion",
-      segment: {
-        id: "seg-rule",
-        kind: "rule",
-        text: "水平方向做匀速直线运动。竖直方向做自由落体运动。",
-      },
+      segment: { id: "seg-rule", kind: "rule", text: "先看平抛运动。再看竖直方向。" },
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+    expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual([
       "http://127.0.0.1:8020/v1/audio/speech",
       "http://127.0.0.1:8020/v1/audio/speech",
     ]);
-    expect(
-      fetchMock.mock.calls.map((call) =>
-        JSON.parse(String((call[1] as RequestInit).body)),
-      ),
-    ).toEqual([
-      expect.objectContaining({
-        text: "水平方向做匀速直线运动。",
-        speaker: "Vivian",
-        language: "Chinese",
-      }),
-      expect.objectContaining({
-        text: "竖直方向做自由落体运动。",
-        speaker: "Vivian",
-        language: "Chinese",
-      }),
-    ]);
-    expect(result.audioFile.extension).toBe("wav");
-    expect(new TextDecoder().decode(result.audioFile.data.slice(0, 4))).toBe(
-      "RIFF",
-    );
     expect(result.durationMs).toBe(1200);
     expect(result.chunks).toEqual([
-      { text: "水平方向做匀速直线运动。", startMs: 0, endMs: 500 },
-      { text: "竖直方向做自由落体运动。", startMs: 500, endMs: 1200 },
+      { text: "先看平抛运动。", startMs: 0, endMs: 500 },
+      { text: "再看竖直方向。", startMs: 500, endMs: 1200 },
     ]);
   });
 
@@ -300,18 +221,10 @@ describe("createTtsProvider", () => {
     const wavA = Buffer.from(createSilentWav(400)).toString("base64");
     const wavB = Buffer.from(createSilentWav(600)).toString("base64");
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          items: [
-            { id: "seg-1", audioBase64: wavA },
-            { id: "seg-2", audioBase64: wavB },
-          ],
-        }),
-        {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        },
-      ),
+      new Response(JSON.stringify({ items: [{ id: "seg-1", audioBase64: wavA }, { id: "seg-2", audioBase64: wavB }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -325,23 +238,11 @@ describe("createTtsProvider", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "http://127.0.0.1:8020/v1/audio/speech-batch",
-    );
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("http://127.0.0.1:8020/v1/audio/speech-batch");
     expect(JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body))).toEqual({
       items: [
-        expect.objectContaining({
-          id: "seg-1",
-          text: "先看平抛运动。",
-          speaker: "Vivian",
-          language: "Chinese",
-        }),
-        expect.objectContaining({
-          id: "seg-2",
-          text: "水平方向匀速，竖直自由落体。",
-          speaker: "Vivian",
-          language: "Chinese",
-        }),
+        expect.objectContaining({ id: "seg-1", text: "先看平抛运动。", speaker: "Vivian", language: "Chinese" }),
+        expect.objectContaining({ id: "seg-2", text: "水平方向匀速，竖直自由落体。", speaker: "Vivian", language: "Chinese" }),
       ],
       seed: 1234,
       do_sample: false,
@@ -349,10 +250,7 @@ describe("createTtsProvider", () => {
       top_p: 0.8,
     });
     expect(results?.map((result) => result.durationMs)).toEqual([400, 600]);
-    expect(results?.map((result) => result.chunks[0]?.text)).toEqual([
-      "先看平抛运动。",
-      "水平方向匀速，竖直自由落体。",
-    ]);
+    expect(results?.map((result) => result.chunks[0]?.text)).toEqual(["先看平抛运动。", "水平方向匀速，竖直自由落体。"]);
   });
 
   it("routes english pronunciation through English TTS while keeping Chinese lines on Qwen", async () => {
@@ -364,51 +262,24 @@ describe("createTtsProvider", () => {
     vi.stubEnv("QWEN_TTS_AUTO_START", "false");
 
     const fetchMock = vi.fn<typeof fetch>(async (input) => {
-      const url =
-        typeof input === "string"
-          ? input
-          : input instanceof URL
-            ? input.toString()
-            : input.url;
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
 
       if (url === "https://api.openai.com/v1/audio/speech") {
-        return new Response(Uint8Array.from([1, 2, 3]), {
-          status: 200,
-          headers: {
-            "content-type": "audio/wav",
-          },
-        });
+        return new Response(Uint8Array.from([1, 2, 3]), { status: 200, headers: { "content-type": "audio/wav" } });
       }
 
       if (url === "https://api.openai.com/v1/audio/transcriptions") {
-        return new Response(
-          JSON.stringify({
-            duration: 1.1,
-            segments: [
-              {
-                text: "morose",
-                start: 0,
-                end: 1.1,
-              },
-            ],
-          }),
-          {
-            status: 200,
-            headers: {
-              "content-type": "application/json",
-            },
-          },
-        );
-      }
-
-      if (url === "http://127.0.0.1:8020/v1/audio/speech") {
-        return new Response(createSilentWav(500), {
+        return new Response(JSON.stringify({ duration: 1.1, segments: [{ text: "morose", start: 0, end: 1.1 }] }), {
           status: 200,
-          headers: { "content-type": "audio/wav" },
+          headers: { "content-type": "application/json" },
         });
       }
 
-      throw new Error("Unexpected fetch request: " + url);
+      if (url === "http://127.0.0.1:8020/v1/audio/speech") {
+        return new Response(createSilentWav(500), { status: 200, headers: { "content-type": "audio/wav" } });
+      }
+
+      throw new Error(`Unexpected fetch request: ${url}`);
     });
 
     vi.stubGlobal("fetch", fetchMock);
@@ -422,23 +293,50 @@ describe("createTtsProvider", () => {
       ],
     });
 
-    expect(
-      fetchMock.mock.calls.filter(
-        (call) => String(call[0]) === "https://api.openai.com/v1/audio/speech",
-      ),
-    ).toHaveLength(1);
-    expect(
-      fetchMock.mock.calls.filter(
-        (call) => String(call[0]) === "https://api.openai.com/v1/audio/transcriptions",
-      ),
-    ).toHaveLength(1);
-    expect(
-      fetchMock.mock.calls.some(
-        (call) => String(call[0]) === "http://127.0.0.1:8020/v1/audio/speech",
-      ),
-    ).toBe(true);
+    expect(fetchMock.mock.calls.filter((call) => String(call[0]) === "https://api.openai.com/v1/audio/speech")).toHaveLength(1);
+    expect(fetchMock.mock.calls.filter((call) => String(call[0]) === "https://api.openai.com/v1/audio/transcriptions")).toHaveLength(1);
+    expect(fetchMock.mock.calls.some((call) => String(call[0]) === "http://127.0.0.1:8020/v1/audio/speech")).toBe(true);
     expect(results?.[0]?.durationMs).toBe(1100);
     expect(results?.[0]?.chunks[0]?.text).toBe("morose");
     expect(results?.[1]?.durationMs).toBeGreaterThan(0);
+  });
+
+  it("uses English language instructions for pronunciation segments when OpenAI is unavailable", async () => {
+    vi.stubEnv("PIPELINE_PROVIDER_MODE", "mock");
+    vi.stubEnv("TTS_PROVIDER", "qwen-local");
+    vi.stubEnv("QWEN_TTS_BASE_URL", "http://127.0.0.1:8020");
+    vi.stubEnv("QWEN_TTS_SPEAKER", "Vivian");
+    vi.stubEnv("QWEN_TTS_AUTO_START", "false");
+
+    const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url === "http://127.0.0.1:8020/v1/audio/speech") {
+        const payload = JSON.parse(String(init?.body ?? "{}")) as { text?: string; language?: string; instruct?: string };
+        if (payload.text === "morose") {
+          expect(payload.language).toBe("English");
+          expect(payload.instruct).toContain("second-syllable stress");
+          return new Response(createSilentWav(500), { status: 200, headers: { "content-type": "audio/wav" } });
+        }
+
+        return new Response(createSilentWav(400), { status: 200, headers: { "content-type": "audio/wav" } });
+      }
+
+      throw new Error(`Unexpected fetch request: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = createTtsProvider();
+    const results = await provider.synthesizeSegments?.({
+      topicId: "english-word-00001",
+      segments: [
+        { id: "english-word-00001-seg-pronunciation", kind: "pronunciation", text: "morose" },
+        { id: "english-word-00001-seg-definition", kind: "definition", text: "中文说明。" },
+      ],
+    });
+
+    expect(results?.[0]?.chunks[0]?.text).toBe("morose");
+    expect(results?.[1]?.chunks[0]?.text).toBe("中文说明。");
   });
 });

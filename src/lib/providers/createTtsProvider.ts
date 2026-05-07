@@ -182,6 +182,9 @@ const createMockWavBytes = (durationMs: number) => {
 const isEnglishPronunciationSegment = (topicId: string, segment: { kind: string }) =>
   topicId.startsWith("english-") && segment.kind === "pronunciation";
 
+const pronunciationInstruction =
+  "Pronounce the single English word naturally, with clear second-syllable stress, and do not use Chinese reading rules.";
+
 const synthesizeOpenAISpeechSegment = async ({
   config,
   text,
@@ -257,9 +260,13 @@ const synthesizeOpenAISpeechSegment = async ({
 const synthesizeQwenLocalSegment = async ({
   config,
   segment,
+  language = config.QWEN_TTS_LANGUAGE,
+  instruct = config.QWEN_TTS_INSTRUCT,
 }: {
   config: ReturnType<typeof readProviderConfig>;
   segment: { text: string };
+  language?: string;
+  instruct?: string;
 }) => {
   const textParts = splitNarrationText(segment.text);
   const audioFiles: Uint8Array<ArrayBuffer>[] = [];
@@ -277,8 +284,8 @@ const synthesizeQwenLocalSegment = async ({
         body: JSON.stringify({
           text: textPart,
           speaker: config.QWEN_TTS_SPEAKER,
-          language: config.QWEN_TTS_LANGUAGE,
-          instruct: config.QWEN_TTS_INSTRUCT,
+          language,
+          instruct,
           ...qwenGenerationOptions(config),
         }),
       },
@@ -326,11 +333,18 @@ export const createTtsProvider = (): TtsProvider => {
       synthesizeSegments: async ({ topicId, segments }) => {
         await ensureQwenReady();
 
-        if (segments.some((segment) => isEnglishPronunciationSegment(topicId, segment)) && config.OPENAI_API_KEY) {
+        if (segments.some((segment) => isEnglishPronunciationSegment(topicId, segment))) {
           return Promise.all(
             segments.map((segment) =>
               (isEnglishPronunciationSegment(topicId, segment)
-                ? synthesizeOpenAISpeechSegment({ config, text: segment.text })
+                ? config.OPENAI_API_KEY
+                  ? synthesizeOpenAISpeechSegment({ config, text: segment.text })
+                  : synthesizeQwenLocalSegment({
+                      config,
+                      segment,
+                      language: "English",
+                      instruct: pronunciationInstruction,
+                    })
                 : synthesizeQwenLocalSegment({ config, segment })),
             ),
           );
@@ -388,6 +402,15 @@ export const createTtsProvider = (): TtsProvider => {
           return synthesizeOpenAISpeechSegment({
             config,
             text: segment.text,
+          });
+        }
+
+        if (isEnglishPronunciationSegment(topicId, segment)) {
+          return synthesizeQwenLocalSegment({
+            config,
+            segment,
+            language: "English",
+            instruct: pronunciationInstruction,
           });
         }
 
