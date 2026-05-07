@@ -38,7 +38,7 @@ const baseEnvSchema = z.object({
   QWEN_TTS_AUTO_START_REF_AUDIO: z
     .string()
     .min(1)
-    .default("assets/voice-clone/reference-clean.wav"),
+    .default("assets/voice-clone/reference-voice-focused.wav"),
   QWEN_TTS_AUTO_START_REF_TEXT: z.string().optional(),
   QWEN_TTS_AUTO_START_X_VECTOR_ONLY_MODE: z
     .enum(["true", "false"])

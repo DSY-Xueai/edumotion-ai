@@ -246,78 +246,82 @@ const buildEnglishDraft = ({
     "郁闷的、闷闷不乐的",
   );
   const meaningTail = meaning.replace(/[。.!！?？；;]+$/u, "");
-  const hookText = "一秒记一个单词。";
-  const definitionText = `今天这个词叫 ${word}，意思是：${meaningTail}。`;
+
+  const buildMemoryScript = () => {
+    if (/(郁闷|闷闷不乐|不开心|沮丧)/u.test(meaningTail)) {
+      return {
+        leadText: "你暗恋的人过生日，别人都送花，",
+        storyText: "只有你——手里空空的，",
+        echoText: "没人送我玫瑰，",
+        wrapStoryText: `${word}，当然郁闷了。`,
+      };
+    }
+
+    if (/(放弃|丢弃|抛弃|舍弃)/u.test(meaningTail)) {
+      return {
+        leadText: "你背着一堆东西赶路，",
+        storyText: "太重了，干脆先把最沉的那袋放下，",
+        echoText: `${word}，`,
+        wrapStoryText: `所以：先放弃、先丢下。`,
+      };
+    }
+
+    return {
+      leadText: "把这个词放进一个具体场景里，",
+      storyText: "动作一出来，意思就跟着出来了，",
+      echoText: `${word}，`,
+      wrapStoryText: `所以：${meaningTail}。`,
+    };
+  };
+
+  const memory = buildMemoryScript();
+  const hookText = "一秒钟记一个单词。";
+  const definitionText = `今天要记的单词是 ${word}，意思是：${meaningTail}。`;
   const processText = "怎么记？";
-  const compareLeadText = "你暗恋的人过生日，别人都送花，";
-  const pitfallText = "只有你——没人送你玫瑰。";
-  const memoryText = "没人送我玫瑰，";
-  const pronunciationText = `${word}，`;
-  const wrapText = "当然郁闷了。";
+  const pronunciationText = word;
+  const wrapText = memory.wrapStoryText;
   const recapText = `${word}，${meaningTail}。`;
   const scriptSegments = [
     { id: `${topicId}-seg-hook`, kind: "hook", text: hookText },
     { id: `${topicId}-seg-definition`, kind: "definition", text: definitionText },
     { id: `${topicId}-seg-process`, kind: "process", text: processText },
-    { id: `${topicId}-seg-compare-lead`, kind: "compare", text: compareLeadText },
-    { id: `${topicId}-seg-pitfall`, kind: "pitfall", text: pitfallText },
-    { id: `${topicId}-seg-memory`, kind: "compare", text: memoryText },
+    { id: `${topicId}-seg-compare-lead`, kind: "compare", text: memory.leadText },
+    { id: `${topicId}-seg-pitfall`, kind: "pitfall", text: memory.storyText },
+    { id: `${topicId}-seg-memory`, kind: "compare", text: memory.echoText },
     { id: `${topicId}-seg-pronunciation`, kind: "pronunciation", text: pronunciationText },
     { id: `${topicId}-seg-wrap`, kind: "wrap", text: wrapText },
     { id: `${topicId}-seg-recap`, kind: "wrap", text: recapText },
   ];
   const storyboardScenes: LessonDraftPayload["storyboardScenes"] = [
     {
-      id: `${topicId}-scene-hook`,
-      type: "hook",
-      segmentIds: [`${topicId}-seg-hook`],
-      durationSec: sceneBudgets.hook || 2,
-    },
-    {
       id: `${topicId}-scene-definition`,
       type: "definition",
-      segmentIds: [`${topicId}-seg-definition`, `${topicId}-seg-process`],
-      durationSec: sceneBudgets.definition || 4,
-    },
-    {
-      id: `${topicId}-scene-compare`,
-      type: "compare",
-      segmentIds: [`${topicId}-seg-compare-lead`, `${topicId}-seg-pitfall`],
-      durationSec: sceneBudgets.compare || 4,
-    },
-    {
-      id: `${topicId}-scene-process`,
-      type: "process",
-      segmentIds: [`${topicId}-seg-memory`, `${topicId}-seg-pronunciation`],
-      durationSec: sceneBudgets.process || 3,
-    },
-    {
-      id: `${topicId}-scene-pitfall`,
-      type: "pitfall",
-      segmentIds: [`${topicId}-seg-wrap`],
-      durationSec: sceneBudgets.pitfall || 2,
-    },
-    {
-      id: `${topicId}-scene-wrap`,
-      type: "wrap",
-      segmentIds: [`${topicId}-seg-recap`],
-      durationSec: sceneBudgets.wrap || 2,
+      segmentIds: scriptSegments.map((segment) => segment.id),
+      durationSec:
+        sceneBudgets.hook +
+        sceneBudgets.definition +
+        sceneBudgets.rule +
+        sceneBudgets.compare +
+        sceneBudgets.process +
+        sceneBudgets.graph +
+        sceneBudgets.pitfall +
+        sceneBudgets.wrap,
     },
   ];
 
   return {
     toneProfile: "english-vocabulary-card",
-    durationTargetSec: 18,
+    durationTargetSec: 20,
     hook: hookText,
     summary: `${word} 的单词记忆卡`,
     scriptSegments,
     storyboardScenes,
     subtitleDraft: subtitlesFor(topicId, scriptSegments),
     visualPlan: visualPlanFromResearch(research, [
-      "单词卡式分层",
-      "先出英文发音再出中文",
-      "中文释义与因果记忆法",
-      "整词回看",
+      "单词必须足够大",
+      "先出发音再出释义",
+      "联想故事只保留一条主线",
+      "最后整词回看",
     ]),
     qaNotes: [],
   };
@@ -415,7 +419,7 @@ export const createDraftProvider = (): DraftProvider => {
           schema: draftPayloadSchema,
           systemPrompt:
             topicId.startsWith("english-")
-              ? "You are a senior Chinese English vocabulary short-video lesson designer. Return only structured JSON for a one-word-one-video lesson draft that matches a layered vocabulary card style, with a short Chinese cadence: 一秒记一个单词。今天这个词叫 X，意思是...。The pronunciation beat must be a standalone segment using the English word itself, and the rest should follow the reference style with a memory hook, contrast, pronunciation beat, and recap."
+              ? "You are a senior Chinese English vocabulary short-video lesson designer. Return only structured JSON for a one-word-one-video lesson draft that matches a layered vocabulary card style, with a short Chinese cadence: 一秒记一个单词。今天要记的单词是 X，意思是...。Keep the whole video visually static on one centered word card, use only one storyboard scene, do not surface phonetic in the narration, do not add extra instructional labels, and keep the pronunciation beat as a standalone segment using the English word itself. The rest should follow the reference style with a fresh mnemonic story tailored to the word meaning, not a repeated fixed anecdote."
               : "You are a senior Chinese high-school STEM short-video lesson designer. Return only structured JSON for a 60-90 second educational lesson draft.",
           userPrompt:
             topicId.startsWith("english-")
@@ -424,7 +428,7 @@ export const createDraftProvider = (): DraftProvider => {
                   `Subject: english`,
                   `Prompt context: ${promptContext}`,
                   `Word: ${research.canonicalTitle}`,
-                  `Phonetic: ${research.formulas.join(" | ")}`,
+                  `Phonetic: ${research.phonetic || research.formulas.join(" | ")}`,
                   `Meanings: ${research.definitions.join(" | ")}`,
                   `Part of speech / hints: ${research.principles.join(" | ")}`,
                   `Mnemonic examples: ${research.examples.join(" | ")}`,
@@ -433,9 +437,12 @@ export const createDraftProvider = (): DraftProvider => {
                   `Scene budgets: ${JSON.stringify(sceneBudgets)}`,
                   "Return Chinese content only.",
                   "Use a layered vocabulary-card style similar to a short-form word memo video.",
-                  "Follow the cadence: 一秒记一个单词。今天这个词叫 X，意思是：...。怎么记？...",
+                  "Follow the cadence: 一秒记一个单词。今天要记的单词是 X，意思是：...。怎么记？...",
+                  "Keep the entire video on one storyboard scene and one centered visual focus.",
+                  "Do not mention phonetic in the narration.",
+                  "Do not include instructional labels like 巧记、词性提示 or other on-screen explanations in the visual plan.",
                   "The pronunciation beat must be a standalone English segment using the English word itself.",
-                  "Use Chinese segments for the memory hook, contrast, pronunciation beat, and recap.",
+                  "Use Chinese segments for the memory hook, contrast, and recap, and build the mnemonic as a fresh story derived from the word meaning.",
                   "Every storyboard scene must reference existing script segment ids.",
                   "Keep the video short and compact.",
                   "Do not write STEM framing.",

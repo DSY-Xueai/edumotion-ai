@@ -381,129 +381,61 @@ export const VocabularyCard = ({
   scene: RenderPackageScene;
   style: SubjectStyle;
 }) => {
-  const frame = useCurrentFrame();
   const word = asString(scene.payload.word, asString(scene.payload.title));
-  const phonetic = asString(scene.payload.phonetic);
-  const partOfSpeech = asString(scene.payload.partOfSpeech);
   const meaning = asString(scene.payload.meaning);
-  const mnemonic = asString(scene.payload.mnemonic, asString(scene.payload.cueHint));
-  const contrast = asString(scene.payload.contrast);
-  const chunks = asWordChunks(scene.payload.wordChunks);
-  const wordReveal = revealValue(frame, 6);
-  const detailReveal = revealValue(frame, 20);
-  const bottomReveal = revealValue(frame, 34);
 
   return (
     <div
       style={{
         ...panel(style),
-        padding: 40,
+        padding: 44,
         minHeight: 760,
         display: "grid",
-        gridTemplateRows: "auto auto 1fr auto",
+        gridTemplateRows: "1fr auto",
+        alignItems: "center",
       }}
     >
       <div
         style={{
-          opacity: wordReveal,
-          textAlign: "center",
-          transform: `translateY(${interpolate(wordReveal, [0, 1], [14, 0], clamp)}px)`,
-        }}
-      >
-        <div
-          style={{
-            display: "inline-flex",
-            gap: 16,
-            alignItems: "baseline",
-            justifyContent: "center",
-            paddingBottom: 10,
-            borderBottom: `3px solid ${style.ink}`,
-          }}
-        >
-          {(chunks.length > 0 ? chunks : [word]).map((chunk, index) => (
-            <span
-              key={`${scene.id}-chunk-${index}`}
-              style={{
-                color: style.ink,
-                fontSize: 72,
-                lineHeight: 1,
-                fontWeight: 900,
-                letterSpacing: 0,
-              }}
-            >
-              {chunk}
-            </span>
-          ))}
-        </div>
-      </div>
-      <div
-        style={{
-          marginTop: 22,
-          opacity: detailReveal,
-          textAlign: "center",
-          transform: `translateY(${interpolate(detailReveal, [0, 1], [12, 0], clamp)}px)`,
-        }}
-      >
-        <div style={{ color: style.secondary, fontSize: 28, fontWeight: 900 }}>
-          {phonetic ? `${phonetic} ` : ""}
-          {partOfSpeech}
-        </div>
-        <div
-          style={{
-            marginTop: 12,
-            color: style.ink,
-            fontSize: meaning.length > 16 ? 34 : 40,
-            fontWeight: 900,
-            lineHeight: 1.22,
-          }}
-        >
-          {meaning}
-        </div>
-      </div>
-      <div />
-      <div
-        style={{
-          opacity: bottomReveal,
-          alignSelf: "end",
           display: "grid",
-          gap: 14,
-          justifySelf: "start",
-          maxWidth: "84%",
-          transform: `translateY(${interpolate(bottomReveal, [0, 1], [16, 0], clamp)}px)`,
+          placeItems: "center",
+          minHeight: 560,
         }}
       >
         <div
           style={{
-            color: style.ink,
-            fontSize: 26,
-            fontWeight: 900,
-            lineHeight: 1.4,
+            textAlign: "center",
+            display: "grid",
+            gap: 20,
+            justifyItems: "center",
           }}
         >
-          巧记：
-        </div>
-        <div
-          style={{
-            color: style.ink,
-            fontSize: 34,
-            fontWeight: 900,
-            lineHeight: 1.34,
-          }}
-        >
-          {mnemonic}
-        </div>
-        {contrast ? (
+          <div
+            style={{
+              color: style.ink,
+              fontSize: word.length > 9 ? 88 : 108,
+              lineHeight: 1,
+              fontWeight: 900,
+              letterSpacing: 0,
+              textAlign: "center",
+              wordBreak: "break-word",
+            }}
+          >
+            {word}
+          </div>
           <div
             style={{
               color: style.secondary,
-              fontSize: 24,
-              fontWeight: 800,
+              fontSize: meaning.length > 20 ? 30 : 36,
+              fontWeight: 850,
               lineHeight: 1.34,
+              maxWidth: "82%",
+              textAlign: "center",
             }}
           >
-            {contrast}
+            {meaning}
           </div>
-        ) : null}
+        </div>
       </div>
     </div>
   );

@@ -80,6 +80,18 @@ describe("readProviderConfig", () => {
     });
   });
 
+  it("defaults local Qwen auto-start to the focused reference audio", () => {
+    expect(
+      readProviderConfig({
+        PIPELINE_PROVIDER_MODE: "mock",
+        TTS_PROVIDER: "qwen-local",
+      }),
+    ).toMatchObject({
+      QWEN_TTS_AUTO_START_REF_AUDIO: "assets/voice-clone/reference-voice-focused.wav",
+      QWEN_TTS_AUTO_START_X_VECTOR_ONLY_MODE: true,
+    });
+  });
+
   it("inspects provider runtime requirements without throwing", () => {
     expect(
       inspectProviderConfig({

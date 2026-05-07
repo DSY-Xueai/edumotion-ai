@@ -2,6 +2,7 @@ import type { TtsProvider } from "../audio/ttsProvider";
 import { splitNarrationText } from "../audio/splitNarrationText";
 import { concatenateWavFiles, readWavInfo } from "../audio/wav";
 import type { TtsChunkTiming } from "../audio/schema";
+import { readEnglishWordbank } from "../curriculum/englishWordbank";
 import { readProviderConfig } from "./config";
 import { ensureQwenTtsCloneServer } from "./ensureQwenTtsCloneServer";
 
@@ -183,7 +184,24 @@ const isEnglishPronunciationSegment = (topicId: string, segment: { kind: string 
   topicId.startsWith("english-") && segment.kind === "pronunciation";
 
 const pronunciationInstruction =
-  "Pronounce the single English word naturally, with clear second-syllable stress, and do not use Chinese reading rules.";
+  "Pronounce the single English word naturally and clearly using standard English pronunciation, and do not use Chinese reading rules.";
+
+let englishWordbankCache: ReturnType<typeof readEnglishWordbank> | null = null;
+
+const getEnglishWordbank = () =>
+  (englishWordbankCache ??= readEnglishWordbank());
+
+const buildPronunciationInstruction = async (topicId: string, word: string) => {
+  const wordbank = await getEnglishWordbank();
+  const entry = wordbank.entries.find((item) => item.id === topicId);
+  const phonetic = entry?.phonetic.trim();
+
+  if (phonetic) {
+    return `Pronounce the single English word ${word} as ${phonetic}. Speak only the word once in a clean studio voice. Use standard English pronunciation only, and do not use Chinese reading rules, filler, echo, humming, or extra commentary.`;
+  }
+
+  return `${pronunciationInstruction} Speak only the word once in a clean studio voice. The word is ${word}.`;
+};
 
 const synthesizeOpenAISpeechSegment = async ({
   config,
@@ -406,11 +424,12 @@ export const createTtsProvider = (): TtsProvider => {
         }
 
         if (isEnglishPronunciationSegment(topicId, segment)) {
+          const instruct = await buildPronunciationInstruction(topicId, segment.text);
           return synthesizeQwenLocalSegment({
             config,
             segment,
             language: "English",
-            instruct: pronunciationInstruction,
+            instruct,
           });
         }
 

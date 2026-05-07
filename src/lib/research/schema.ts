@@ -21,6 +21,7 @@ export const topicResearchSchema = z.object({
   topicId: z.string().min(1),
   scope: researchScopeSchema,
   canonicalTitle: z.string().min(1),
+  phonetic: z.string().optional(),
   definitions: z.array(z.string()),
   formulas: z.array(z.string()),
   principles: z.array(z.string()),

@@ -179,7 +179,7 @@ describe("AutoVideoComposition", () => {
     expect(html).toContain("折射光线");
   });
 
-  it("renders english vocabulary scenes with the layered word-card visual", () => {
+  it("renders english vocabulary scenes with the centered word visual", () => {
     const spec: RenderPackage = {
       topicId: "english-word-00042",
       lessonVersion: 1,
@@ -202,7 +202,15 @@ describe("AutoVideoComposition", () => {
       subtitleTrack: {
         topicId: "english-word-00042",
         subject: "english",
-        cues: [],
+        cues: [
+          {
+            id: "cue-english-1",
+            segmentId: "seg-english-1",
+            text: "一秒钟记一个单词。",
+            startMs: 0,
+            endMs: 1200,
+          },
+        ],
       },
       scenes: [
         {
@@ -230,9 +238,11 @@ describe("AutoVideoComposition", () => {
     expect(html).toContain('data-motion-lab-subject="english"');
     expect(html).toContain('data-visual-module="vocabulary-card"');
     expect(html).toContain("morose");
-    expect(html).toContain("adj.");
     expect(html).toContain("郁闷的");
-    expect(html).toContain("巧记：mo + rose = morose");
+    expect(html).toContain("cue-english-1");
+    expect(html).toContain("一秒钟记一个单词。");
+    expect(html).not.toContain("adj.");
+    expect(html).not.toContain("巧记");
   });
 
   it("does not premount audio sequences because premounting causes overlapping narration", () => {

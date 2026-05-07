@@ -1,34 +1,40 @@
-# 当前项目状态
-- 项目是 topic-based 的数理化 + 英语短视频生成系统，主链路为 curriculum -> research -> draft -> review approve -> audio/subtitle -> render -> topic status。
-- 英语学科已接入，词库来源为合并后的 CET4/CET6 本地词库，并按单词去重后生成稳定序号。
-- 英语视频现在支持词内分轨发音：英语单词段走英语 TTS，中文解释继续走中文 TTS。
+# 当前状态
+- 主链路已通：`curriculum -> research -> draft -> review -> audio/subtitle -> render -> topic status`
+- 英语学科已接入 CET4/CET6 合并词库，按单词生成稳定 `topicId`
+- 英语视频已经改成“单词卡”式：单词居中放大，英文发音段独立走 TTS，字幕层按音频 cue 对齐显示，中文解释段继续走中文 TTS
 
 # 本轮变更
-- 英语文案改成接近 dy_7483426954834660635.mp4 的单词卡模板：一秒记一个单词、释义、怎么记、联想例句、独立发音 beat、回顾。
-- 英语 pronunciation 段现在即使没有 OpenAI key，也会在 qwen-local 下切到 English language + 英语发音提示，避免中文式读法。
-- 英语 draft 的 scriptSegments / storyboardScenes 重新收紧，保证字幕、音频和画面能按行对齐。
-- 继续保留并验证了英文单词样片 english-word-00001。
+- 英语草稿去掉了固定音标展示，改为更通用的记忆文案模板
+- 英语渲染改为单场景静态画面，取消英文场景底部旁白字幕层
+- 英语词卡视觉简化为中央大词 + 中央释义，去掉“巧记/词性/音标”等干扰层
+- 英文字幕层已经恢复，仍然按 `subtitleTrack.cues` 与音频时间同步
+- 本地 Qwen TTS 的英文发音继续走单独英文段，并把自动启动参考音频默认切到 `reference-voice-focused.wav`
 
 # 关键文件
-- src/lib/providers/createDraftProvider.ts
-- src/lib/providers/createTtsProvider.ts
-- src/lib/rendering/subjectAdapter.ts
-- src/compositions/adaptiveMotion/AdaptiveMotionComposition.tsx
-- tests/providers/createDraftProvider.test.ts
-- tests/providers/createTtsProvider.test.ts
-- curriculum/pep-2019/english/wordbank.json
-- src/lib/curriculum/englishWordbank.ts
+- `src/lib/providers/createDraftProvider.ts`
+- `src/lib/providers/createTtsProvider.ts`
+- `src/compositions/adaptiveMotion/AdaptiveMotionComposition.tsx`
+- `src/compositions/adaptiveMotion/visualModules.tsx`
+- `src/lib/providers/config.ts`
+- `src/lib/rendering/subjectAdapter.ts`
+- `src/lib/research/schema.ts`
+- `src/lib/review/schema.ts`
+- `tests/providers/createDraftProvider.test.ts`
+- `tests/providers/createTtsProvider.test.ts`
+- `tests/providers/providerConfig.test.ts`
+- `tests/rendering/subjectAdapterRegistry.test.ts`
+- `tests/composition.test.tsx`
+- `curriculum/pep-2019/english/wordbank.json`
 
 # 运行入口
-- npm run cli -- curriculum list --subject english --volume cet
-- npm run cli -- produce render --topic-id english-word-00001
-- npm run qwen:tts
-- npm run dev
-- npm test
-- npm run lint:types
+- `npm run cli -- research run --topic-id english-word-00002`
+- `npm run cli -- review --action approve --topic-id english-word-00002`
+- `TTS_PROVIDER=qwen-local npm run cli -- produce render --topic-id english-word-00002`
+- `npm test`
+- `npm run lint:types`
 
 # 当前注意事项
-- 英语单词生成按 topic 序号推进，避免重复生成相同单词。
-- qwen-local 首次渲染会自动拉起本地 Qwen3-TTS Base clone 服务。
-- 生成正式成片仍应使用真 TTS；mock audio 只适合画面链路验证。
-- 英语 pronunciation 段现在有 OpenAI 优先、Qwen 英语兜底两层路径。
+- `abandon` 已补入音标 `/əˈbændən/`
+- 英文场景现在显示底部字幕，但不再显示额外解释块，避免画面跳字和干扰信息
+- 若后续某个英语词条仍缺音标，发音会继续按英文单词本身单独合成，但研究层可能只保留空音标字段
+- 当前样例渲染路径：`workspace/videos/2026-5-7/03/english-word-00002/render/video.mp4`

@@ -169,6 +169,7 @@ describe("getSubjectAdapter", () => {
       canonicalTitle: "morose",
       sourceSummary: {
         canonicalTitle: "morose",
+        phonetic: "/məˈrəʊs/",
         definitions: ["郁闷的；阴郁的"],
         formulas: ["/məˈrəʊs/"],
         principles: ["adj.", "形容词"],

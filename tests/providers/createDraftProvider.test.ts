@@ -7,21 +7,22 @@ describe("createDraftProvider", () => {
     vi.unstubAllEnvs();
   });
 
-  it("builds english drafts with the reference cadence and a separate pronunciation beat", async () => {
+  it("builds english drafts with a fresh mnemonic and a separate pronunciation beat", async () => {
     vi.stubEnv("PIPELINE_PROVIDER_MODE", "mock");
 
     const provider = createDraftProvider();
     const draft = await provider.createDraft({
-      topicId: "english-word-00001",
+      topicId: "english-word-00002",
       research: {
-        topicId: "english-word-00001",
+        topicId: "english-word-00002",
         scope: "topic",
-        canonicalTitle: "morose",
-        definitions: ["郁闷的、闷闷不乐的"],
-        formulas: ["/məˈroʊs/"],
-        principles: ["adj.", "形容词"],
-        examples: ["没人送我玫瑰，morose，当然郁闷了。"],
-        misconceptions: ["别把 morose 和 more 搞混。"],
+        canonicalTitle: "abandon",
+        phonetic: "/əˈbændən/",
+        definitions: ["丢弃；放弃，抛弃"],
+        formulas: ["/əˈbændən/"],
+        principles: ["v.", "动词"],
+        examples: ["你背着一堆东西赶路，太重了，干脆先把最沉的那袋放下。"],
+        misconceptions: ["别把 abandon 和 ability 搞混。"],
         prerequisites: [],
         nextConnections: [],
         visualizationHints: ["用单词卡和联想法表达。"],
@@ -37,11 +38,11 @@ describe("createDraftProvider", () => {
         pitfall: 6,
         wrap: 6,
       },
-      promptContext: "morose",
+      promptContext: "abandon",
     });
 
     expect(draft.toneProfile).toBe("english-vocabulary-card");
-    expect(draft.durationTargetSec).toBe(18);
+    expect(draft.durationTargetSec).toBe(20);
     expect(draft.scriptSegments.map((segment) => segment.kind)).toEqual([
       "hook",
       "definition",
@@ -53,38 +54,21 @@ describe("createDraftProvider", () => {
       "wrap",
       "wrap",
     ]);
-    expect(draft.scriptSegments[0]?.text).toBe("一秒记一个单词。");
-    expect(draft.scriptSegments[1]?.text).toBe("今天这个词叫 morose，意思是：郁闷的、闷闷不乐的。");
+    expect(draft.scriptSegments[0]?.text).toBe("一秒钟记一个单词。");
+    expect(draft.scriptSegments[1]?.text).toBe("今天要记的单词是 abandon，意思是：丢弃；放弃，抛弃。");
     expect(draft.scriptSegments[2]?.text).toBe("怎么记？");
-    expect(draft.scriptSegments[3]?.text).toBe("你暗恋的人过生日，别人都送花，");
-    expect(draft.scriptSegments[4]?.text).toBe("只有你——没人送你玫瑰。");
-    expect(draft.scriptSegments[5]?.text).toBe("没人送我玫瑰，");
-    expect(draft.scriptSegments[6]?.text).toBe("morose，");
-    expect(draft.scriptSegments[7]?.text).toBe("当然郁闷了。");
-    expect(draft.scriptSegments[8]?.text).toBe("morose，郁闷的、闷闷不乐的。");
+    expect(draft.scriptSegments[3]?.text).toBe("你背着一堆东西赶路，");
+    expect(draft.scriptSegments[4]?.text).toBe("太重了，干脆先把最沉的那袋放下，");
+    expect(draft.scriptSegments[5]?.text).toBe("abandon，");
+    expect(draft.scriptSegments[6]?.text).toBe("abandon");
+    expect(draft.scriptSegments[7]?.text).toBe("所以：先放弃、先丢下。");
+    expect(draft.scriptSegments[8]?.text).toBe("abandon，丢弃；放弃，抛弃。");
     expect(draft.storyboardScenes.map((scene) => scene.type)).toEqual([
-      "hook",
       "definition",
-      "compare",
-      "process",
-      "pitfall",
-      "wrap",
     ]);
-    expect(draft.storyboardScenes[0]?.segmentIds).toEqual(["english-word-00001-seg-hook"]);
-    expect(draft.storyboardScenes[1]?.segmentIds).toEqual([
-      "english-word-00001-seg-definition",
-      "english-word-00001-seg-process",
-    ]);
-    expect(draft.storyboardScenes[2]?.segmentIds).toEqual([
-      "english-word-00001-seg-compare-lead",
-      "english-word-00001-seg-pitfall",
-    ]);
-    expect(draft.storyboardScenes[3]?.segmentIds).toEqual([
-      "english-word-00001-seg-memory",
-      "english-word-00001-seg-pronunciation",
-    ]);
-    expect(draft.storyboardScenes[4]?.segmentIds).toEqual(["english-word-00001-seg-wrap"]);
-    expect(draft.storyboardScenes[5]?.segmentIds).toEqual(["english-word-00001-seg-recap"]);
-    expect(draft.visualPlan.join("\n")).toContain("单词卡");
+    expect(draft.storyboardScenes[0]?.segmentIds).toEqual(
+      draft.scriptSegments.map((segment) => segment.id),
+    );
+    expect(draft.visualPlan.join("\n")).toContain("用单词卡和联想法表达");
   });
 });

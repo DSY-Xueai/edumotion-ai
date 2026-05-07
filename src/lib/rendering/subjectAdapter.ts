@@ -43,8 +43,9 @@ const sceneLabelMap: Record<string, string> = {
   wrap: "收束总结",
 };
 
-const firstText = (values: string[], fallback: string) =>
-  values.find((value) => value.trim().length > 0) ?? fallback;
+const firstText = (values: Array<string | undefined>, fallback: string) =>
+  values.find((value): value is string => typeof value === "string" && value.trim().length > 0) ??
+  fallback;
 
 const takeDistinct = (values: string[], limit = 3) =>
   Array.from(new Set(values.filter((value) => value.trim().length > 0))).slice(0, limit);
@@ -229,7 +230,7 @@ const buildEnglishPayload = ({
     ...buildBasePayload({ canonicalTitle, scene }),
     sceneLabel: englishSceneLabelMap[scene.type] ?? "单词",
     word: canonicalTitle,
-    phonetic: firstText(sourceSummary.formulas, ""),
+    phonetic: firstText([sourceSummary.phonetic, ...sourceSummary.formulas], ""),
     partOfSpeech: firstText(sourceSummary.principles, "word"),
     meaning: firstText(sourceSummary.definitions, canonicalTitle),
     meaningLines: takeDistinct(sourceSummary.definitions, 3),

@@ -269,7 +269,7 @@ describe("createTtsProvider", () => {
       }
 
       if (url === "https://api.openai.com/v1/audio/transcriptions") {
-        return new Response(JSON.stringify({ duration: 1.1, segments: [{ text: "morose", start: 0, end: 1.1 }] }), {
+        return new Response(JSON.stringify({ duration: 1.1, segments: [{ text: "abandon", start: 0, end: 1.1 }] }), {
           status: 200,
           headers: { "content-type": "application/json" },
         });
@@ -286,10 +286,10 @@ describe("createTtsProvider", () => {
 
     const provider = createTtsProvider();
     const results = await provider.synthesizeSegments?.({
-      topicId: "english-word-00001",
+      topicId: "english-word-00002",
       segments: [
-        { id: "english-word-00001-seg-pronunciation", kind: "pronunciation", text: "morose" },
-        { id: "english-word-00001-seg-definition", kind: "definition", text: "中文说明 morose 中文说明" },
+        { id: "english-word-00002-seg-pronunciation", kind: "pronunciation", text: "abandon" },
+        { id: "english-word-00002-seg-definition", kind: "definition", text: "中文说明 abandon 中文说明" },
       ],
     });
 
@@ -297,7 +297,7 @@ describe("createTtsProvider", () => {
     expect(fetchMock.mock.calls.filter((call) => String(call[0]) === "https://api.openai.com/v1/audio/transcriptions")).toHaveLength(1);
     expect(fetchMock.mock.calls.some((call) => String(call[0]) === "http://127.0.0.1:8020/v1/audio/speech")).toBe(true);
     expect(results?.[0]?.durationMs).toBe(1100);
-    expect(results?.[0]?.chunks[0]?.text).toBe("morose");
+    expect(results?.[0]?.chunks[0]?.text).toBe("abandon");
     expect(results?.[1]?.durationMs).toBeGreaterThan(0);
   });
 
@@ -313,9 +313,9 @@ describe("createTtsProvider", () => {
 
       if (url === "http://127.0.0.1:8020/v1/audio/speech") {
         const payload = JSON.parse(String(init?.body ?? "{}")) as { text?: string; language?: string; instruct?: string };
-        if (payload.text === "morose") {
+        if (payload.text === "abandon") {
           expect(payload.language).toBe("English");
-          expect(payload.instruct).toContain("second-syllable stress");
+          expect(payload.instruct).toContain("standard English pronunciation");
           return new Response(createSilentWav(500), { status: 200, headers: { "content-type": "audio/wav" } });
         }
 
@@ -329,14 +329,14 @@ describe("createTtsProvider", () => {
 
     const provider = createTtsProvider();
     const results = await provider.synthesizeSegments?.({
-      topicId: "english-word-00001",
+      topicId: "english-word-00002",
       segments: [
-        { id: "english-word-00001-seg-pronunciation", kind: "pronunciation", text: "morose" },
-        { id: "english-word-00001-seg-definition", kind: "definition", text: "中文说明。" },
+        { id: "english-word-00002-seg-pronunciation", kind: "pronunciation", text: "abandon" },
+        { id: "english-word-00002-seg-definition", kind: "definition", text: "中文说明。" },
       ],
     });
 
-    expect(results?.[0]?.chunks[0]?.text).toBe("morose");
+    expect(results?.[0]?.chunks[0]?.text).toBe("abandon");
     expect(results?.[1]?.chunks[0]?.text).toBe("中文说明。");
   });
 });

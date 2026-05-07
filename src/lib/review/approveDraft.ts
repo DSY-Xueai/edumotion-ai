@@ -30,6 +30,7 @@ export const approveDraft = async ({
     approvedStoryboard: draft.storyboardScenes,
     sourceSummary: {
       canonicalTitle: research.canonicalTitle,
+      phonetic: research.phonetic ?? "",
       definitions: research.definitions,
       formulas: research.formulas,
       principles: research.principles,

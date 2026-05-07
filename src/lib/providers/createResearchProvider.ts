@@ -113,6 +113,7 @@ const buildEnglishResearchFromWordbank = async (topicId: string) => {
 
   return {
     canonicalTitle: entry.word,
+    phonetic: entry.phonetic,
     definitions: entry.meaningLines,
     formulas: entry.phonetic ? [entry.phonetic] : [],
     principles: [
@@ -142,6 +143,7 @@ const researchPayloadSchema = {
   additionalProperties: false,
   properties: {
     canonicalTitle: { type: "string" },
+    phonetic: { type: "string" },
     definitions: { type: "array", items: { type: "string" } },
     formulas: { type: "array", items: { type: "string" } },
     principles: { type: "array", items: { type: "string" } },
@@ -261,6 +263,7 @@ export const createResearchProvider = async (): Promise<ResearchProvider> => {
 
         return {
           canonicalTitle: parsed.canonicalTitle,
+          phonetic: parsed.phonetic ?? "",
           definitions: parsed.definitions,
           formulas: parsed.formulas,
           principles: parsed.principles,
@@ -296,6 +299,7 @@ export const createResearchProvider = async (): Promise<ResearchProvider> => {
 
       return {
         canonicalTitle,
+        phonetic: "",
         definitions:
           fixture?.definitions ?? [`${canonicalTitle}需要先讲清楚对象边界和核心定义。`],
         formulas: fixture?.formulas ?? [],

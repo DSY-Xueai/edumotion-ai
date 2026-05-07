@@ -11,7 +11,7 @@
     "lint:types": "tsc --noEmit",
     "english:wordbank": "tsx tools/build_english_wordbank.ts",
     "qwen:tts": ".\\.venv-qwen\\Scripts\\python tools/qwen_tts_server/server.py --model-dir D:\\Qwen3-TTS\\Qwen3-TTS-12Hz-1.7B-CustomVoice --host 127.0.0.1 --port 8020",
-    "qwen:tts:clone": ".\\.venv-qwen\\Scripts\\python tools/qwen_tts_server/server.py --model-dir D:\\Qwen3-TTS\\Qwen3-TTS-12Hz-1.7B-Base --host 127.0.0.1 --port 8020 --ref-audio assets\\voice-clone\\reference-clean.wav --x-vector-only-mode",
+    "qwen:tts:clone": ".\\.venv-qwen\\Scripts\\python tools/qwen_tts_server/server.py --model-dir D:\\Qwen3-TTS\\Qwen3-TTS-12Hz-1.7B-Base --host 127.0.0.1 --port 8020 --ref-audio assets\\voice-clone\\reference-voice-focused.wav --x-vector-only-mode",
     "qwen:tts:clone:focused": ".\\.venv-qwen\\Scripts\\python tools/qwen_tts_server/server.py --model-dir D:\\Qwen3-TTS\\Qwen3-TTS-12Hz-1.7B-Base --host 127.0.0.1 --port 8020 --ref-audio assets\\voice-clone\\reference-voice-focused.wav --x-vector-only-mode"
   },
   "dependencies": {
