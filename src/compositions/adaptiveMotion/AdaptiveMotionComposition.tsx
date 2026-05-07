@@ -28,6 +28,17 @@ const sceneLabelMap: Record<string, string> = {
   wrap: "总结",
 };
 
+const englishSceneLabelMap: Record<string, string> = {
+  hook: "单词",
+  definition: "释义",
+  rule: "拆解",
+  compare: "记忆",
+  process: "拼写",
+  graph: "词形",
+  pitfall: "易混",
+  wrap: "回顾",
+};
+
 const splitCaption = (text: string) => {
   if (text.length <= 28) {
     return [text];
@@ -133,7 +144,10 @@ const AdaptiveScene = ({
     clamp,
   );
   const sceneTitle = renderPackage.canonicalTitle;
-  const label = sceneLabelMap[scene.kind] ?? scene.kind;
+  const label =
+    renderPackage.subject === "english"
+      ? englishSceneLabelMap[scene.kind] ?? scene.kind
+      : sceneLabelMap[scene.kind] ?? scene.kind;
 
   return (
     <AbsoluteFill
@@ -159,7 +173,10 @@ const AdaptiveScene = ({
             ...scene,
             payload: {
               ...scene.payload,
-              sceneLabel: String(scene.payload.sceneLabel ?? label),
+              sceneLabel:
+                renderPackage.subject === "english"
+                  ? label
+                  : String(scene.payload.sceneLabel ?? label),
             },
           }}
           style={style}

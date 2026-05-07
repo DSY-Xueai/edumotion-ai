@@ -6,8 +6,10 @@ export type VisualModule =
   | "formula-board"
   | "process-flow"
   | "compare-board"
+  | "reflection-ray"
   | "motion-diagram"
   | "optics-ray"
+  | "vocabulary-card"
   | "particle-lab";
 
 const hasArrayContent = (value: unknown) => Array.isArray(value) && value.length > 0;
@@ -45,6 +47,7 @@ const looksLikeFormula = (value: unknown) =>
 
 const opticsKeywords = [
   "光",
+  "反射",
   "折射",
   "入射",
   "法线",
@@ -107,6 +110,17 @@ export const selectVisualModule = ({
 }): VisualModule => {
   const payload = scene.payload;
   const text = payloadText(scene);
+
+  if (
+    subject === "english" &&
+    (hasText(payload.word) || hasText(payload.phonetic) || hasText(payload.meaning))
+  ) {
+    return "vocabulary-card";
+  }
+
+  if (subject === "physics" && hasAnyKeyword(text, ["反射", "镜面反射", "平面镜"])) {
+    return "reflection-ray";
+  }
 
   if (
     subject === "chemistry" &&

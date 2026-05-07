@@ -30,6 +30,20 @@ describe("selectVisualModule", () => {
     ).toBe("optics-ray");
   });
 
+  it("routes reflection scenes to the dedicated reflection ray diagram", () => {
+    expect(
+      selectVisualModule({
+        subject: "physics",
+        scene: scene({
+          title: "光的反射",
+          narration: "入射光线、反射光线和法线在同一平面内。",
+          lawCard: "∠i = ∠r",
+          observationNote: "用平面镜和对称光路展示反射定律。",
+        }),
+      }),
+    ).toBe("reflection-ray");
+  });
+
   it("keeps circular motion scenes on the motion diagram", () => {
     expect(
       selectVisualModule({
@@ -87,5 +101,22 @@ describe("selectVisualModule", () => {
         }, "compare", "chemistry"),
       }),
     ).toBe("process-flow");
+  });
+
+  it("routes english vocabulary scenes to a dedicated word-card module", () => {
+    expect(
+      selectVisualModule({
+        subject: "english" as never,
+        scene: scene({
+          title: "morose",
+          narration: "先看单词，再看音标、词性和记忆口诀。",
+          word: "morose",
+          phonetic: "/məˈrəʊs/",
+          partOfSpeech: "adj.",
+          meaning: "郁闷的",
+          mnemonic: "mo + rose",
+        }, "hook", "english"),
+      }),
+    ).toBe("vocabulary-card");
   });
 });

@@ -9,8 +9,10 @@
     "test": "vitest run",
     "render": "tsx src/cli/render.ts",
     "lint:types": "tsc --noEmit",
+    "english:wordbank": "tsx tools/build_english_wordbank.ts",
     "qwen:tts": ".\\.venv-qwen\\Scripts\\python tools/qwen_tts_server/server.py --model-dir D:\\Qwen3-TTS\\Qwen3-TTS-12Hz-1.7B-CustomVoice --host 127.0.0.1 --port 8020",
-    "qwen:tts:clone": ".\\.venv-qwen\\Scripts\\python tools/qwen_tts_server/server.py --model-dir D:\\Qwen3-TTS\\Qwen3-TTS-12Hz-1.7B-Base --host 127.0.0.1 --port 8020 --ref-audio workspace\\videos\\2026-5-4\\01\\physics-b2-ch5-topic-001\\audio\\physics-b2-ch5-topic-001-seg-hook.wav --ref-text \"先看 平抛运动 的现象，再追问变量之间怎样影响。\""
+    "qwen:tts:clone": ".\\.venv-qwen\\Scripts\\python tools/qwen_tts_server/server.py --model-dir D:\\Qwen3-TTS\\Qwen3-TTS-12Hz-1.7B-Base --host 127.0.0.1 --port 8020 --ref-audio assets\\voice-clone\\reference-clean.wav --x-vector-only-mode",
+    "qwen:tts:clone:focused": ".\\.venv-qwen\\Scripts\\python tools/qwen_tts_server/server.py --model-dir D:\\Qwen3-TTS\\Qwen3-TTS-12Hz-1.7B-Base --host 127.0.0.1 --port 8020 --ref-audio assets\\voice-clone\\reference-voice-focused.wav --x-vector-only-mode"
   },
   "dependencies": {
     "@remotion/bundler": "^4.0.340",

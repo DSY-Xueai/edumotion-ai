@@ -23,6 +23,13 @@ describe("getSubjectAdapter", () => {
     expect(adapter.visualSystemId).toBe("chemistry");
   });
 
+  it("returns an english adapter with an english visual system id", () => {
+    const adapter = getSubjectAdapter("english" as never);
+
+    expect(adapter.subject).toBe("english");
+    expect(adapter.visualSystemId).toBe("english");
+  });
+
   it("builds math scene payloads with board-ready knowledge cues", () => {
     const adapter = getSubjectAdapter("math");
 
@@ -152,6 +159,46 @@ describe("getSubjectAdapter", () => {
         expect.stringContaining("氧化还原反应"),
         expect.stringContaining("电子"),
       ]),
+    });
+  });
+
+  it("builds english scene payloads with word-card cues", () => {
+    const adapter = getSubjectAdapter("english" as never);
+
+    const scene = adapter.mapScene({
+      canonicalTitle: "morose",
+      sourceSummary: {
+        canonicalTitle: "morose",
+        definitions: ["郁闷的；阴郁的"],
+        formulas: ["/məˈrəʊs/"],
+        principles: ["adj.", "形容词"],
+        examples: ["巧记：mo + rose = morose"],
+        misconceptions: ["别和 more 搞混。"],
+        prerequisites: ["看过最短记忆卡就能上手。"],
+        nextConnections: ["后面会继续背相近词。"],
+        visualizationHints: ["用词根拆分、音标和中文释义做三层展示。"],
+        sources: [],
+      },
+      scene: {
+        id: "scene-4",
+        type: "hook",
+        segmentIds: ["seg-4"],
+        narration: "先看单词长什么样，再看它怎么读、怎么记。",
+        startMs: 0,
+        endMs: 2200,
+        durationMs: 2200,
+        targetDurationMs: 2500,
+        segments: [],
+        subtitleCues: [],
+      },
+    });
+
+    expect(scene.component).toBe("english/hook");
+    expect(scene.payload).toMatchObject({
+      word: "morose",
+      phonetic: "/məˈrəʊs/",
+      partOfSpeech: "adj.",
+      meaning: "郁闷的；阴郁的",
     });
   });
 });

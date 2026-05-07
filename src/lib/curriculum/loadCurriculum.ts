@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { readEnglishWordbank, buildEnglishTopicNodes } from "./englishWordbank";
 import {
   curriculumIndexSchema,
   type CurriculumEdition,
@@ -8,7 +9,7 @@ import {
   type TopicNode,
 } from "./schema";
 
-const SUBJECTS: Subject[] = ["math", "physics", "chemistry"];
+const SUBJECTS: Subject[] = ["math", "physics", "chemistry", "english"];
 
 const sortTopics = (topics: TopicNode[]) =>
   [...topics].sort((left, right) => left.orderIndex - right.orderIndex);
@@ -25,12 +26,24 @@ export const loadCurriculum = async (
   const rawContent = await readFile(curriculumPath, "utf8");
   const parsedContent = curriculumIndexSchema.parse(JSON.parse(rawContent));
 
+  let englishTopics: TopicNode[] = [];
+  try {
+    const englishWordbank = await readEnglishWordbank();
+    englishTopics = buildEnglishTopicNodes(englishWordbank);
+  } catch (error) {
+    if (!(error instanceof Error) || !/ENOENT|no such file or directory/i.test(error.message)) {
+      throw error;
+    }
+  }
+
+  const allTopics = [...parsedContent.topics, ...englishTopics];
+
   const subjects = SUBJECTS.reduce<LoadedCurriculum["subjects"]>(
     (result, subject) => {
       result[subject] = {
         id: subject,
         topics: sortTopics(
-          parsedContent.topics.filter((topic) => topic.subject === subject),
+          allTopics.filter((topic) => topic.subject === subject),
         ),
       };
 

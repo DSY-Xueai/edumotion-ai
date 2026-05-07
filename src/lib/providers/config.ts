@@ -25,6 +25,25 @@ const baseEnvSchema = z.object({
     .transform((value) => value === "true"),
   QWEN_TTS_TEMPERATURE: z.coerce.number().positive().default(0.2),
   QWEN_TTS_TOP_P: z.coerce.number().positive().max(1).default(0.8),
+  QWEN_TTS_AUTO_START: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((value) => value === "true"),
+  QWEN_TTS_AUTO_START_MODEL_DIR: z
+    .string()
+    .min(1)
+    .default("D:\\Qwen3-TTS\\Qwen3-TTS-12Hz-1.7B-Base"),
+  QWEN_TTS_AUTO_START_DEVICE_MAP: z.string().min(1).default("cuda:0"),
+  QWEN_TTS_AUTO_START_DTYPE: z.string().min(1).default("bfloat16"),
+  QWEN_TTS_AUTO_START_REF_AUDIO: z
+    .string()
+    .min(1)
+    .default("assets/voice-clone/reference-clean.wav"),
+  QWEN_TTS_AUTO_START_REF_TEXT: z.string().optional(),
+  QWEN_TTS_AUTO_START_X_VECTOR_ONLY_MODE: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((value) => value === "true"),
   PIPELINE_PROVIDER_MODE: providerModeSchema.default("mock"),
   RENDER_OUTPUT_MODE: renderModeSchema.default("mock"),
 });
@@ -81,6 +100,7 @@ export const inspectProviderConfig = (
     qwenTtsBaseUrl: parsed.QWEN_TTS_BASE_URL,
     qwenTtsSpeaker: parsed.QWEN_TTS_SPEAKER,
     qwenTtsLanguage: parsed.QWEN_TTS_LANGUAGE,
+    qwenTtsAutoStart: parsed.QWEN_TTS_AUTO_START,
     openaiBaseUrl: parsed.OPENAI_BASE_URL,
     requiresApiKey: parsed.PIPELINE_PROVIDER_MODE === "openai",
     apiKeyConfigured: Boolean(parsed.OPENAI_API_KEY),

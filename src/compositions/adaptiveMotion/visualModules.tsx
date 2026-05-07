@@ -41,6 +41,14 @@ export const subjectStyles: Record<RenderPackage["subject"], SubjectStyle> = {
       "linear-gradient(180deg, #24100b 0%, #442315 48%, #522d1c 100%)",
     ink: "#fff7f0",
   },
+  english: {
+    label: "ENGLISH VOCAB",
+    accent: "#ff8d7a",
+    secondary: "#efd96a",
+    background:
+      "linear-gradient(180deg, #081f31 0%, #0c3147 48%, #123b52 100%)",
+    ink: "#f6fbff",
+  },
 };
 
 const asString = (value: unknown, fallback = "") =>
@@ -72,6 +80,11 @@ const asDisplayArray = (value: unknown) =>
           return String(item);
         })
         .filter(Boolean)
+    : [];
+
+const asWordChunks = (value: unknown) =>
+  Array.isArray(value)
+    ? value.map((item) => String(item).trim()).filter(Boolean)
     : [];
 
 const panel = (style: SubjectStyle): CSSProperties => ({
@@ -361,6 +374,141 @@ export const CompareBoard = ({
   );
 };
 
+export const VocabularyCard = ({
+  scene,
+  style,
+}: {
+  scene: RenderPackageScene;
+  style: SubjectStyle;
+}) => {
+  const frame = useCurrentFrame();
+  const word = asString(scene.payload.word, asString(scene.payload.title));
+  const phonetic = asString(scene.payload.phonetic);
+  const partOfSpeech = asString(scene.payload.partOfSpeech);
+  const meaning = asString(scene.payload.meaning);
+  const mnemonic = asString(scene.payload.mnemonic, asString(scene.payload.cueHint));
+  const contrast = asString(scene.payload.contrast);
+  const chunks = asWordChunks(scene.payload.wordChunks);
+  const wordReveal = revealValue(frame, 6);
+  const detailReveal = revealValue(frame, 20);
+  const bottomReveal = revealValue(frame, 34);
+
+  return (
+    <div
+      style={{
+        ...panel(style),
+        padding: 40,
+        minHeight: 760,
+        display: "grid",
+        gridTemplateRows: "auto auto 1fr auto",
+      }}
+    >
+      <div
+        style={{
+          opacity: wordReveal,
+          textAlign: "center",
+          transform: `translateY(${interpolate(wordReveal, [0, 1], [14, 0], clamp)}px)`,
+        }}
+      >
+        <div
+          style={{
+            display: "inline-flex",
+            gap: 16,
+            alignItems: "baseline",
+            justifyContent: "center",
+            paddingBottom: 10,
+            borderBottom: `3px solid ${style.ink}`,
+          }}
+        >
+          {(chunks.length > 0 ? chunks : [word]).map((chunk, index) => (
+            <span
+              key={`${scene.id}-chunk-${index}`}
+              style={{
+                color: style.ink,
+                fontSize: 72,
+                lineHeight: 1,
+                fontWeight: 900,
+                letterSpacing: 0,
+              }}
+            >
+              {chunk}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div
+        style={{
+          marginTop: 22,
+          opacity: detailReveal,
+          textAlign: "center",
+          transform: `translateY(${interpolate(detailReveal, [0, 1], [12, 0], clamp)}px)`,
+        }}
+      >
+        <div style={{ color: style.secondary, fontSize: 28, fontWeight: 900 }}>
+          {phonetic ? `${phonetic} ` : ""}
+          {partOfSpeech}
+        </div>
+        <div
+          style={{
+            marginTop: 12,
+            color: style.ink,
+            fontSize: meaning.length > 16 ? 34 : 40,
+            fontWeight: 900,
+            lineHeight: 1.22,
+          }}
+        >
+          {meaning}
+        </div>
+      </div>
+      <div />
+      <div
+        style={{
+          opacity: bottomReveal,
+          alignSelf: "end",
+          display: "grid",
+          gap: 14,
+          justifySelf: "start",
+          maxWidth: "84%",
+          transform: `translateY(${interpolate(bottomReveal, [0, 1], [16, 0], clamp)}px)`,
+        }}
+      >
+        <div
+          style={{
+            color: style.ink,
+            fontSize: 26,
+            fontWeight: 900,
+            lineHeight: 1.4,
+          }}
+        >
+          巧记：
+        </div>
+        <div
+          style={{
+            color: style.ink,
+            fontSize: 34,
+            fontWeight: 900,
+            lineHeight: 1.34,
+          }}
+        >
+          {mnemonic}
+        </div>
+        {contrast ? (
+          <div
+            style={{
+              color: style.secondary,
+              fontSize: 24,
+              fontWeight: 800,
+              lineHeight: 1.34,
+            }}
+          >
+            {contrast}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+};
+
 export const MotionDiagram = ({
   scene,
   style,
@@ -456,6 +604,100 @@ export const OpticsRayDiagram = ({
   );
 };
 
+export const ReflectionRayDiagram = ({
+  scene,
+  style,
+}: {
+  scene: RenderPackageScene;
+  style: SubjectStyle;
+}) => {
+  const frame = useCurrentFrame();
+  const reveal = revealValue(frame, 4);
+  const law = asString(scene.payload.lawCard, "∠i = ∠r");
+  const note = asString(scene.payload.observationNote, asString(scene.payload.narration));
+  const incidentEnd = interpolate(reveal, [0, 1], [150, 315], clamp);
+  const reflectedEnd = interpolate(reveal, [0, 1], [315, 510], clamp);
+
+  return (
+    <div style={{ ...panel(style), padding: 28, minHeight: 760 }}>
+      <div style={{ color: style.accent, fontSize: 28, fontWeight: 900 }}>光的反射</div>
+      <svg width="100%" height="560" viewBox="0 0 660 560" style={{ marginTop: 18 }}>
+        <defs>
+          <marker
+            id="reflection-arrow"
+            markerWidth="18"
+            markerHeight="18"
+            refX="16"
+            refY="9"
+            orient="auto"
+            markerUnits="userSpaceOnUse"
+          >
+            <path d="M 0 0 L 18 9 L 0 18 z" fill={style.accent} />
+          </marker>
+        </defs>
+        <rect x="42" y="270" width="576" height="10" rx="5" fill="#ffffff" opacity="0.92" />
+        <line
+          x1="330"
+          y1="72"
+          x2="330"
+          y2="492"
+          stroke={style.secondary}
+          strokeWidth="4"
+          strokeDasharray="13 12"
+          opacity="0.95"
+        />
+        <line
+          x1="150"
+          y1="112"
+          x2={incidentEnd}
+          y2="270"
+          stroke={style.secondary}
+          strokeWidth="10"
+          strokeLinecap="round"
+          markerEnd="url(#reflection-arrow)"
+        />
+        <line
+          x1="330"
+          y1="270"
+          x2={reflectedEnd}
+          y2="112"
+          stroke={style.accent}
+          strokeWidth="10"
+          strokeLinecap="round"
+          markerEnd="url(#reflection-arrow)"
+        />
+        <circle cx="330" cy="270" r="15" fill="#ffffff" />
+        <path d="M 330 210 A 64 64 0 0 0 282 230" fill="none" stroke={style.secondary} strokeWidth="4" />
+        <path d="M 330 330 A 64 64 0 0 1 378 310" fill="none" stroke={style.accent} strokeWidth="4" />
+        <text x="66" y="106" fill="#ffffff" fontSize="30" fontWeight="900">
+          空气
+        </text>
+        <text x="346" y="156" fill={style.secondary} fontSize="24" fontWeight="900">
+          法线
+        </text>
+        <text x="156" y="162" fill={style.secondary} fontSize="26" fontWeight="900">
+          入射光线
+        </text>
+        <text x="418" y="152" fill={style.accent} fontSize="26" fontWeight="900">
+          反射光线
+        </text>
+        <text x="250" y="224" fill="#ffffff" fontSize="22" fontWeight="900">
+          i
+        </text>
+        <text x="390" y="228" fill="#ffffff" fontSize="22" fontWeight="900">
+          r
+        </text>
+      </svg>
+      <div style={{ padding: "20px 24px", borderRadius: 24, background: "rgba(255,255,255,0.08)", fontSize: 36, fontWeight: 900 }}>
+        {law}
+      </div>
+      <div style={{ marginTop: 14, color: style.ink, opacity: 0.86, fontSize: 25, lineHeight: 1.32 }}>
+        {note}
+      </div>
+    </div>
+  );
+};
+
 export const ParticleLab = ({
   scene,
   style,
@@ -527,6 +769,12 @@ export const renderVisualModule = ({
   }
   if (module === "compare-board") {
     return <CompareBoard scene={scene} style={style} />;
+  }
+  if (module === "vocabulary-card") {
+    return <VocabularyCard scene={scene} style={style} />;
+  }
+  if (module === "reflection-ray") {
+    return <ReflectionRayDiagram scene={scene} style={style} />;
   }
   if (module === "motion-diagram") {
     return <MotionDiagram scene={scene} style={style} />;

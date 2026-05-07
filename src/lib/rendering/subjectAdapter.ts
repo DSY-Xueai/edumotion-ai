@@ -65,6 +65,33 @@ const physicsMeaningMap: Record<string, string> = {
   r: "折射角",
 };
 
+const splitWordChunks = (word: string) => {
+  const trimmed = word.trim();
+
+  if (!trimmed) {
+    return [];
+  }
+
+  if (trimmed.includes("/") || trimmed.includes("-") || trimmed.includes(" ")) {
+    return trimmed
+      .split(/[\s/-]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  if (trimmed.length <= 4) {
+    return [trimmed];
+  }
+
+  const match = trimmed.match(/^([^aeiouy]*[aeiouy]+)(.*)$/i);
+
+  if (match?.[1] && match[2]) {
+    return [match[1], match[2]];
+  }
+
+  return [trimmed];
+};
+
 const inferVariableCards = (formula: string): VariableCard[] => {
   const labels = Array.from(new Set(formula.match(/[A-Za-z]/g) ?? []));
 
@@ -180,6 +207,46 @@ const buildChemistryPayload = ({
   ),
 });
 
+const buildEnglishPayload = ({
+  canonicalTitle,
+  sourceSummary,
+  scene,
+}: {
+  canonicalTitle: string;
+  sourceSummary: ApprovedSourceSummary;
+  scene: TimedRenderScene;
+}) => {
+  const englishSceneLabelMap: Record<string, string> = {
+    hook: "单词",
+    definition: "释义",
+    compare: "拆解",
+    wrap: "回顾",
+  };
+
+  return {
+    ...buildBasePayload({ canonicalTitle, scene }),
+    sceneLabel: englishSceneLabelMap[scene.type] ?? "单词",
+    word: canonicalTitle,
+    phonetic: firstText(sourceSummary.formulas, ""),
+    partOfSpeech: firstText(sourceSummary.principles, "word"),
+    meaning: firstText(sourceSummary.definitions, canonicalTitle),
+    meaningLines: takeDistinct(sourceSummary.definitions, 3),
+    mnemonic: firstText(
+      sourceSummary.examples,
+      `巧记：${canonicalTitle} 先看读音，再看词形。`,
+    ),
+    contrast: firstText(
+      sourceSummary.misconceptions,
+      `别把 ${canonicalTitle} 和相似拼写的词混淆。`,
+    ),
+    wordChunks: splitWordChunks(canonicalTitle),
+    cueHint: firstText(
+      sourceSummary.visualizationHints,
+      "用单词、音标、释义和口诀分层展示。",
+    ),
+  };
+};
+
 const buildAdapter = ({
   subject,
   themeTokens,
@@ -237,4 +304,14 @@ export const chemistrySubjectAdapter = buildAdapter({
     accent: "#8a3b12",
   },
   payloadBuilder: buildChemistryPayload,
+});
+
+export const englishSubjectAdapter = buildAdapter({
+  subject: "english",
+  themeTokens: {
+    palette: "english-vocab-card",
+    typography: "english-serif",
+    accent: "#ff8d7a",
+  },
+  payloadBuilder: buildEnglishPayload,
 });

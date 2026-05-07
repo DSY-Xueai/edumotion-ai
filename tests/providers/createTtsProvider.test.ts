@@ -230,6 +230,7 @@ describe("createTtsProvider", () => {
     vi.stubEnv("TTS_PROVIDER", "qwen-local");
     vi.stubEnv("QWEN_TTS_BASE_URL", "http://127.0.0.1:8020");
     vi.stubEnv("QWEN_TTS_SPEAKER", "Vivian");
+    vi.stubEnv("QWEN_TTS_AUTO_START", "false");
 
     const fetchMock = vi
       .fn<typeof fetch>()
@@ -294,6 +295,7 @@ describe("createTtsProvider", () => {
     vi.stubEnv("QWEN_TTS_BASE_URL", "http://127.0.0.1:8020");
     vi.stubEnv("QWEN_TTS_SPEAKER", "Vivian");
     vi.stubEnv("QWEN_TTS_SEED", "1234");
+    vi.stubEnv("QWEN_TTS_AUTO_START", "false");
 
     const wavA = Buffer.from(createSilentWav(400)).toString("base64");
     const wavB = Buffer.from(createSilentWav(600)).toString("base64");

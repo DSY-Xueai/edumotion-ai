@@ -3,6 +3,7 @@ import { splitNarrationText } from "../audio/splitNarrationText";
 import { concatenateWavFiles, readWavInfo } from "../audio/wav";
 import type { TtsChunkTiming } from "../audio/schema";
 import { readProviderConfig } from "./config";
+import { ensureQwenTtsCloneServer } from "./ensureQwenTtsCloneServer";
 
 const parseTimeMs = (value: unknown): number | undefined => {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
@@ -179,10 +180,14 @@ const createMockWavBytes = (durationMs: number) => {
 
 export const createTtsProvider = (): TtsProvider => {
   const config = readProviderConfig();
+  const ensureQwenReady = async () => {
+    await ensureQwenTtsCloneServer(config);
+  };
 
   if (config.TTS_PROVIDER === "qwen-local") {
     return {
       synthesizeSegments: async ({ segments }) => {
+        await ensureQwenReady();
         const response = await fetch(
           `${trimTrailingSlash(config.QWEN_TTS_BASE_URL)}/v1/audio/speech-batch`,
           {
@@ -230,6 +235,7 @@ export const createTtsProvider = (): TtsProvider => {
         });
       },
       synthesizeSegment: async ({ segment }) => {
+        await ensureQwenReady();
         const textParts = splitNarrationText(segment.text);
         const audioFiles: Uint8Array<ArrayBuffer>[] = [];
         const chunks: TtsChunkTiming[] = [];

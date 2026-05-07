@@ -60,11 +60,19 @@ CUDA 可用时使用默认 `npm run qwen:tts`，或显式指定：
 .\.venv-qwen\Scripts\python tools\qwen_tts_server\server.py --model-dir D:\Qwen3-TTS\Qwen3-TTS-12Hz-1.7B-CustomVoice --device-map cuda:0 --dtype bfloat16
 ```
 
-若需要全片固定同一种声音，推荐启动 Base clone 服务。下面示例使用已生成的 Vivian 参考音频：
+若需要全片固定同一种声音，推荐启动 Base clone 服务。当前项目已配置从 `voice_only.mp3` 清理出的人声参考音频：
 
 ```powershell
-.\.venv-qwen\Scripts\python tools\qwen_tts_server\server.py --model-dir D:\Qwen3-TTS\Qwen3-TTS-12Hz-1.7B-Base --device-map cuda:0 --dtype bfloat16 --ref-audio workspace\videos\2026-5-4\01\physics-b2-ch5-topic-001\audio\physics-b2-ch5-topic-001-seg-hook.wav --x-vector-only-mode
+npm run qwen:tts:clone
 ```
+
+默认参考文件为 `assets\voice-clone\reference-clean.wav`。源音频含背景音乐，因此参考音频已转为 24kHz mono WAV，并做中置人声提取、高通/低通、频域降噪和响度标准化。若默认参考音仍残留音乐，可尝试更强处理版本：
+
+```powershell
+npm run qwen:tts:clone:focused
+```
+
+两个 clone 入口都使用 `--x-vector-only-mode`，只提取 speaker embedding，不要求 `ref-text` 与原音频逐字完全一致，适合背景音乐或转写不够稳定的短参考音频。
 
 ## 项目环境变量
 
@@ -79,7 +87,11 @@ set RENDER_OUTPUT_MODE=real
 
 `qwen-local` 不需要 `OPENAI_API_KEY`。项目会把同一个 topic 的 approved script 一次性 batch 发送给 Qwen。每个段落仍会得到独立 WAV，字幕 chunks 按每段 WAV 的真实时长生成。
 
-如果使用 `CustomVoice`，即使 speaker 固定为 `Vivian`，多段生成仍可能有音色漂移。需要“全片固定一种声音”时，应启动 `Base` clone 服务，让所有段落复用同一个 speaker embedding。
+从现在起，`qwen-local` 在第一次需要配音时会自动检查并拉起 Qwen3-TTS Base clone 服务，无需再手动执行 `npm run qwen:tts:clone`。
+
+如果使用 `CustomVoice`，即使 speaker 固定为 `Vivian`，多段生成仍可能有音色漂移。需要“全片固定一种声音”时，应启动 `Base` clone 服务，让所有段落复用同一个 speaker embedding。当前项目的视频人声克隆会自动使用 Base clone 服务。
+
+项目根目录的 `sox.py` 提供了 Qwen TTS 依赖的最小兼容实现，避免本机缺少外部 SoX 安装时直接失败。
 
 可选稳定性参数：
 

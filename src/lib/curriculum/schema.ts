@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const subjectSchema = z.enum(["math", "physics", "chemistry"]);
+export const subjectSchema = z.enum(["math", "physics", "chemistry", "english"]);
 export const curriculumEditionSchema = z.literal("pep-2019");
 
 export const topicNodeSchema = z.object({

@@ -1,4 +1,5 @@
 import { loadCurriculum } from "../curriculum/loadCurriculum";
+import { readEnglishWordbank } from "../curriculum/englishWordbank";
 import { topicResearchSchema, type TopicResearchPayload } from "../research/schema";
 import type { ResearchProvider } from "../research/researchProvider";
 import { readProviderConfig } from "./config";
@@ -51,6 +52,15 @@ const topicFixtures: Record<string, MockResearchContent> = {
     misconceptions: ["路程和位移总是一样。"],
     visualizationHints: ["把时间、位移和速度做成联动仪表。"],
   },
+  "physics-b1-ch2-topic-001": {
+    canonicalTitle: "光的反射",
+    definitions: ["光射到物体表面后返回原介质的现象叫光的反射。"],
+    formulas: ["∠i = ∠r"],
+    principles: ["反射光线、入射光线和法线在同一平面内。"],
+    examples: ["平面镜把人脸和房间的影像清楚地映出来。"],
+    misconceptions: ["反射定律只是背一个角度相等。"],
+    visualizationHints: ["用平面镜、法线和对称的入射/反射光线展示规律。"],
+  },
   "physics-b2-ch5-topic-001": {
     canonicalTitle: "平抛运动",
     definitions: ["平抛运动是物体以水平初速度抛出，只在重力作用下的曲线运动。"],
@@ -80,6 +90,51 @@ const topicFixtures: Record<string, MockResearchContent> = {
     misconceptions: ["化学方程式里出现的所有离子都必须写进离子方程式。"],
     visualizationHints: ["用离子卡片和沉淀落下动画表达反应。"],
   },
+};
+
+const buildEnglishResearchFromWordbank = async (topicId: string) => {
+  const wordbank = await readEnglishWordbank();
+  const entry = wordbank.entries.find((item) => item.id === topicId);
+
+  if (!entry) {
+    throw new Error(`Unknown english topic for research provider: ${topicId}`);
+  }
+
+  const sourceSummary = wordbank.sourceFiles
+    .filter((sourceFile) => entry.sourceLevels.includes(sourceFile.sourceLevel))
+    .map((sourceFile) => ({
+      title: `${sourceFile.sourceLevel} 词表`,
+      url: sourceFile.url,
+      sourceType: "reference" as const,
+      publisher: "Mahavivo",
+      retrievedAt: wordbank.generatedAt.slice(0, 10),
+      quoteOrSummary: `${entry.word} 的原始词表来源。`,
+    }));
+
+  return {
+    canonicalTitle: entry.word,
+    definitions: entry.meaningLines,
+    formulas: entry.phonetic ? [entry.phonetic] : [],
+    principles: [
+      entry.partOfSpeech,
+      `来源：${entry.sourceLevels.join(" + ")}`,
+    ].filter((value) => value.trim().length > 0),
+    examples: [
+      `巧记：${entry.word} 先看音标，再看中文义项。`,
+      `拆分：${entry.word}`,
+    ].filter((value) => value.trim().length > 0),
+    misconceptions: [
+      `别把 ${entry.word} 和相似拼写的词混淆。`,
+      `先记词形和读音，再记义项。`,
+    ],
+    prerequisites: [],
+    nextConnections: [],
+    visualizationHints: [
+      "用单词、音标、词性、中文释义和记忆口诀分层展示。",
+      "画面节奏参考单词卡式逐层揭示。",
+    ],
+    sources: sourceSummary,
+  };
 };
 
 const researchPayloadSchema = {
@@ -159,23 +214,44 @@ export const createResearchProvider = async (): Promise<ResearchProvider> => {
           schemaName: "topic_research_payload",
           schema: researchPayloadSchema,
           systemPrompt:
-            "You are a senior Chinese high-school STEM curriculum researcher. Return only structured JSON that is factually cautious, concise, and suitable for a short-form lesson pipeline.",
-          userPrompt: [
-            `Topic ID: ${topic.id}`,
-            `Subject: ${topic.subject}`,
-            `Edition: ${topic.edition}`,
-            `Volume: ${topic.volume}`,
-            `Chapter: ${topic.chapter}`,
-            `Section: ${topic.section}`,
-            `Topic title: ${topic.title}`,
-            `Previous topic: ${topic.prevTopicId ?? "none"}`,
-            `Next topic: ${topic.nextTopicId ?? "none"}`,
-            `Prompt context: ${promptContext}`,
-            "Return Chinese content.",
-            "Need 1-3 items for each list field.",
-            "Sources must be plausible textbook or educational references with valid-looking https URLs.",
-            "Prefer textbook-level definitions, one formula only when relevant, and compact misconceptions/visualization hints.",
-          ].join("\n"),
+            topic.subject === "english"
+              ? "You are a senior English vocabulary curriculum researcher for Chinese short-form videos. Return only structured JSON that is concise, factually cautious, and optimized for one-word-one-video teaching."
+              : "You are a senior Chinese high-school STEM curriculum researcher. Return only structured JSON that is factually cautious, concise, and suitable for a short-form lesson pipeline.",
+          userPrompt:
+            topic.subject === "english"
+              ? [
+                  `Topic ID: ${topic.id}`,
+                  `Subject: ${topic.subject}`,
+                  `Edition: ${topic.edition}`,
+                  `Volume: ${topic.volume}`,
+                  `Chapter: ${topic.chapter}`,
+                  `Section: ${topic.section}`,
+                  `Word: ${topic.title}`,
+                  `Previous topic: ${topic.prevTopicId ?? "none"}`,
+                  `Next topic: ${topic.nextTopicId ?? "none"}`,
+                  `Prompt context: ${promptContext}`,
+                  "Return Chinese content only.",
+                  "Focus on a one-word vocabulary video: word, phonetic, part of speech, concise Chinese meanings, memory hook, and a short mistake warning.",
+                  "Need 1-3 items for each list field.",
+                  "Sources must be plausible vocabulary list or educational references with valid-looking https URLs.",
+                  "Do not write math, physics, or chemistry phrasing.",
+                ].join("\n")
+              : [
+                  `Topic ID: ${topic.id}`,
+                  `Subject: ${topic.subject}`,
+                  `Edition: ${topic.edition}`,
+                  `Volume: ${topic.volume}`,
+                  `Chapter: ${topic.chapter}`,
+                  `Section: ${topic.section}`,
+                  `Topic title: ${topic.title}`,
+                  `Previous topic: ${topic.prevTopicId ?? "none"}`,
+                  `Next topic: ${topic.nextTopicId ?? "none"}`,
+                  `Prompt context: ${promptContext}`,
+                  "Return Chinese content.",
+                  "Need 1-3 items for each list field.",
+                  "Sources must be plausible textbook or educational references with valid-looking https URLs.",
+                  "Prefer textbook-level definitions, one formula only when relevant, and compact misconceptions/visualization hints.",
+                ].join("\n"),
         });
         const parsed = topicResearchSchema.parse({
           topicId,
@@ -209,6 +285,10 @@ export const createResearchProvider = async (): Promise<ResearchProvider> => {
 
       if (!topic) {
         throw new Error(`Unknown topic for research provider: ${topicId}`);
+      }
+
+      if (topic?.subject === "english") {
+        return buildEnglishResearchFromWordbank(topicId);
       }
 
       const fixture = topicFixtures[topicId];

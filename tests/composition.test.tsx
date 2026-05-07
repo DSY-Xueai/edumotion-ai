@@ -179,6 +179,62 @@ describe("AutoVideoComposition", () => {
     expect(html).toContain("折射光线");
   });
 
+  it("renders english vocabulary scenes with the layered word-card visual", () => {
+    const spec: RenderPackage = {
+      topicId: "english-word-00042",
+      lessonVersion: 1,
+      canonicalTitle: "morose",
+      approvedAt: "2026-05-07T00:00:00.000Z",
+      generatedAt: "2026-05-07T00:00:00.000Z",
+      totalDurationMs: 3000,
+      meta: {
+        topicId: "english-word-00042",
+        subject: "english",
+        aspectRatio: "9:16",
+      },
+      subject: "english",
+      themeTokens: {
+        palette: "english-vocab-card",
+        typography: "english-serif",
+        accent: "#ff8d7a",
+      },
+      audioTracks: [],
+      subtitleTrack: {
+        topicId: "english-word-00042",
+        subject: "english",
+        cues: [],
+      },
+      scenes: [
+        {
+          id: "scene-english",
+          kind: "hook",
+          component: "english/hook",
+          durationInFrames: 90,
+          payload: {
+            title: "morose",
+            narration: "先看单词，再看音标、词性和记忆口诀。",
+            word: "morose",
+            phonetic: "/məˈrəʊs/",
+            partOfSpeech: "adj.",
+            meaning: "郁闷的",
+            mnemonic: "巧记：mo + rose = morose",
+            wordChunks: ["mo", "rose"],
+          },
+        },
+      ],
+      durationInFrames: 90,
+    };
+
+    const html = renderToStaticMarkup(<AutoVideoComposition {...spec} />);
+
+    expect(html).toContain('data-motion-lab-subject="english"');
+    expect(html).toContain('data-visual-module="vocabulary-card"');
+    expect(html).toContain("morose");
+    expect(html).toContain("adj.");
+    expect(html).toContain("郁闷的");
+    expect(html).toContain("巧记：mo + rose = morose");
+  });
+
   it("does not premount audio sequences because premounting causes overlapping narration", () => {
     const spec: RenderPackage = {
       topicId: "topic-audio",

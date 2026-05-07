@@ -11,7 +11,8 @@
 ## 当前能力
 
 - 以教材 `topic` 为最小生产单元
-- 数学 / 物理 / 化学三套独立视觉系统
+- 数学 / 物理 / 化学 / 英语四套独立视觉系统
+- 英语词汇库已合并 CET4 / CET6 并按单词序号稳定生成
 - `mock` 模式可本地快速出样片，不依赖 runtime API key
 - `openai` 模式可接真实 `research / draft / TTS`
 - `openai text + mock TTS` 混合模式可在不支持语音模型的网关上继续出片
@@ -40,6 +41,13 @@ set PIPELINE_PROVIDER_MODE=mock
 set RENDER_OUTPUT_MODE=real
 npm run cli -- doctor
 npm run cli -- provider probe
+```
+
+### 英语词库生成
+
+```bash
+npm run english:wordbank
+npm run cli -- curriculum list --subject english --volume cet
 ```
 
 ### OpenAI 运行时模式
@@ -98,7 +106,7 @@ set RENDER_OUTPUT_MODE=real
 npm run qwen:tts
 ```
 
-服务实现位于 `tools/qwen_tts_server/server.py`，安装与模型下载见 `docs/qwen-tts-local.md`。`qwen-local` 会把每段旁白拆成中文短句，逐句合成后按真实 WAV 时长生成字幕对齐。
+服务实现位于 `tools/qwen_tts_server/server.py`，安装与模型下载见 `docs/qwen-tts-local.md`。`qwen-local` 会把每段旁白拆成中文短句，逐句合成后按真实 WAV 时长生成字幕对齐；如果 Base clone 服务未启动，项目会在第一次生成时自动拉起。
 
 ## 诊断
 
@@ -143,6 +151,7 @@ npm run cli -- provider probe --include-tts
 npm run cli -- curriculum list --subject math
 npm run cli -- curriculum list --subject physics
 npm run cli -- curriculum list --subject chemistry
+npm run cli -- curriculum list --subject english --volume cet
 ```
 
 ### 单个 topic 流程
@@ -172,7 +181,7 @@ npm run cli -- batch next
 ## 产物目录
 
 ```text
-workspace/topics/<topicId>/
+workspace/videos/YYYY-M-D/NN/<topicId>/
   manifest.json
   research/topic.json
   draft/lesson.json

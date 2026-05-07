@@ -231,6 +231,67 @@ const buildChemistryDraft = ({
   };
 };
 
+const buildEnglishDraft = ({
+  topicId,
+  research,
+  sceneBudgets,
+}: {
+  topicId: string;
+  research: TopicResearch;
+  sceneBudgets: SceneBudgetMap;
+}) => {
+  const word = research.canonicalTitle;
+  const phonetic = firstResearchText(research.formulas, "");
+  const meaning = firstResearchText(
+    research.definitions,
+    `${word} 的中文释义。`,
+  );
+  const mnemonic = firstResearchText(
+    research.examples,
+    `巧记：${word} 先看音标，再看词义。`,
+  );
+  const contrast = firstResearchText(
+    research.misconceptions,
+    `别把 ${word} 和相似拼写的词混淆。`,
+  );
+  const hookText = `先别急着背 ${word}，先看它长什么样。`;
+  const definitionText = phonetic ? `${word} ${phonetic} ${meaning}` : `${word} ${meaning}`;
+  const compareText = mnemonic;
+  const wrapText = `${contrast} 再读一遍 ${word}。`;
+  const scriptSegments = [
+    { id: `${topicId}-seg-hook`, kind: "hook", text: hookText },
+    { id: `${topicId}-seg-definition`, kind: "definition", text: definitionText },
+    { id: `${topicId}-seg-compare`, kind: "compare", text: compareText },
+    { id: `${topicId}-seg-wrap`, kind: "wrap", text: wrapText },
+  ];
+
+  return {
+    toneProfile: "english-vocabulary-card",
+    durationTargetSec: 36,
+    hook: hookText,
+    summary: `${word} 的词汇记忆卡`,
+    scriptSegments,
+    storyboardScenes: [
+      scene({ topicId, type: "hook", durationSec: sceneBudgets.hook / 2 }),
+      scene({
+        topicId,
+        type: "definition",
+        durationSec: sceneBudgets.definition / 2,
+      }),
+      scene({ topicId, type: "compare", durationSec: sceneBudgets.compare / 2 }),
+      scene({ topicId, type: "wrap", durationSec: sceneBudgets.wrap / 2 }),
+    ],
+    subtitleDraft: subtitlesFor(topicId, scriptSegments),
+    visualPlan: visualPlanFromResearch(research, [
+      "单词卡式分层",
+      "音标和词性先出",
+      "中文释义与口诀后出",
+      "整词回看",
+    ]),
+    qaNotes: [],
+  };
+};
+
 const draftPayloadSchema = {
   type: "object",
   additionalProperties: false,
@@ -323,25 +384,47 @@ export const createDraftProvider = (): DraftProvider => {
           schemaName: "lesson_draft_payload",
           schema: draftPayloadSchema,
           systemPrompt:
-            "You are a senior Chinese high-school STEM short-video lesson designer. Return only structured JSON for a 60-90 second educational lesson draft.",
-          userPrompt: [
-            `Topic ID: ${topicId}`,
-            `Subject: ${topicId.split("-")[0]}`,
-            `Prompt context: ${promptContext}`,
-            `Canonical title: ${research.canonicalTitle}`,
-            `Definitions: ${research.definitions.join(" | ")}`,
-            `Formulas: ${research.formulas.join(" | ")}`,
-            `Principles: ${research.principles.join(" | ")}`,
-            `Examples: ${research.examples.join(" | ")}`,
-            `Misconceptions: ${research.misconceptions.join(" | ")}`,
-            `Visualization hints: ${research.visualizationHints.join(" | ")}`,
-            `Scene budgets: ${JSON.stringify(sceneBudgets)}`,
-            "Return Chinese content.",
-            "Use concise but teachable narration.",
-            "Every storyboard scene must reference existing script segment ids.",
-            "Choose scene types that fit the subject instead of forcing all scene kinds.",
-            "Duration target should stay in the 60-90 second range.",
-          ].join("\n"),
+            topicId.startsWith("english-")
+              ? "You are a senior Chinese English vocabulary short-video lesson designer. Return only structured JSON for a one-word-one-video lesson draft that matches a layered vocabulary card style."
+              : "You are a senior Chinese high-school STEM short-video lesson designer. Return only structured JSON for a 60-90 second educational lesson draft.",
+          userPrompt:
+            topicId.startsWith("english-")
+              ? [
+                  `Topic ID: ${topicId}`,
+                  `Subject: english`,
+                  `Prompt context: ${promptContext}`,
+                  `Word: ${research.canonicalTitle}`,
+                  `Phonetic: ${research.formulas.join(" | ")}`,
+                  `Meanings: ${research.definitions.join(" | ")}`,
+                  `Part of speech / hints: ${research.principles.join(" | ")}`,
+                  `Mnemonic examples: ${research.examples.join(" | ")}`,
+                  `Misconceptions: ${research.misconceptions.join(" | ")}`,
+                  `Visualization hints: ${research.visualizationHints.join(" | ")}`,
+                  `Scene budgets: ${JSON.stringify(sceneBudgets)}`,
+                  "Return Chinese content only.",
+                  "Use a layered vocabulary-card style similar to a short-form word memo video: hook, definition, mnemonic comparison, wrap.",
+                  "Every storyboard scene must reference existing script segment ids.",
+                  "Keep the video short and compact.",
+                  "Do not write STEM framing.",
+                ].join("\n")
+              : [
+                  `Topic ID: ${topicId}`,
+                  `Subject: ${topicId.split("-")[0]}`,
+                  `Prompt context: ${promptContext}`,
+                  `Canonical title: ${research.canonicalTitle}`,
+                  `Definitions: ${research.definitions.join(" | ")}`,
+                  `Formulas: ${research.formulas.join(" | ")}`,
+                  `Principles: ${research.principles.join(" | ")}`,
+                  `Examples: ${research.examples.join(" | ")}`,
+                  `Misconceptions: ${research.misconceptions.join(" | ")}`,
+                  `Visualization hints: ${research.visualizationHints.join(" | ")}`,
+                  `Scene budgets: ${JSON.stringify(sceneBudgets)}`,
+                  "Return Chinese content.",
+                  "Use concise but teachable narration.",
+                  "Every storyboard scene must reference existing script segment ids.",
+                  "Choose scene types that fit the subject instead of forcing all scene kinds.",
+                  "Duration target should stay in the 60-90 second range.",
+                ].join("\n"),
         });
         const parsed = lessonDraftSchema.parse({
           topicId,
@@ -369,6 +452,10 @@ export const createDraftProvider = (): DraftProvider => {
 
   return {
     createDraft: async ({ topicId, research, sceneBudgets }) => {
+      if (topicId.startsWith("english-")) {
+        return buildEnglishDraft({ topicId, research, sceneBudgets });
+      }
+
       if (topicId.startsWith("physics-")) {
         return buildPhysicsDraft({ topicId, research, sceneBudgets });
       }
