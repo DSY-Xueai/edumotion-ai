@@ -29,11 +29,11 @@ const sceneLabelMap: Record<string, string> = {
 };
 
 const englishSceneLabelMap: Record<string, string> = {
-  hook: "单词",
-  definition: "释义",
-  rule: "拆解",
+  hook: "发音",
+  definition: "单词",
+  rule: "释义",
   compare: "记忆",
-  process: "拼写",
+  process: "联想",
   graph: "词形",
   pitfall: "易混",
   wrap: "回顾",

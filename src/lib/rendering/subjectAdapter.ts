@@ -217,9 +217,11 @@ const buildEnglishPayload = ({
   scene: TimedRenderScene;
 }) => {
   const englishSceneLabelMap: Record<string, string> = {
-    hook: "单词",
-    definition: "释义",
-    compare: "拆解",
+    hook: "发音",
+    definition: "单词",
+    process: "释义",
+    compare: "记忆",
+    pitfall: "联想",
     wrap: "回顾",
   };
 

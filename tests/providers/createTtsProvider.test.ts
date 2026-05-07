@@ -320,7 +320,7 @@ describe("createTtsProvider", () => {
       topicId: "physics-b2-ch5-topic-001",
       segments: [
         { id: "seg-1", kind: "hook", text: "先看平抛运动。" },
-        { id: "seg-2", kind: "rule", text: "水平匀速，竖直自由落体。" },
+        { id: "seg-2", kind: "rule", text: "水平方向匀速，竖直自由落体。" },
       ],
     });
 
@@ -338,7 +338,7 @@ describe("createTtsProvider", () => {
         }),
         expect.objectContaining({
           id: "seg-2",
-          text: "水平匀速，竖直自由落体。",
+          text: "水平方向匀速，竖直自由落体。",
           speaker: "Vivian",
           language: "Chinese",
         }),
@@ -351,7 +351,94 @@ describe("createTtsProvider", () => {
     expect(results?.map((result) => result.durationMs)).toEqual([400, 600]);
     expect(results?.map((result) => result.chunks[0]?.text)).toEqual([
       "先看平抛运动。",
-      "水平匀速，竖直自由落体。",
+      "水平方向匀速，竖直自由落体。",
     ]);
+  });
+
+  it("routes english pronunciation through English TTS while keeping Chinese lines on Qwen", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("PIPELINE_PROVIDER_MODE", "mock");
+    vi.stubEnv("TTS_PROVIDER", "qwen-local");
+    vi.stubEnv("QWEN_TTS_BASE_URL", "http://127.0.0.1:8020");
+    vi.stubEnv("QWEN_TTS_SPEAKER", "Vivian");
+    vi.stubEnv("QWEN_TTS_AUTO_START", "false");
+
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
+
+      if (url === "https://api.openai.com/v1/audio/speech") {
+        return new Response(Uint8Array.from([1, 2, 3]), {
+          status: 200,
+          headers: {
+            "content-type": "audio/wav",
+          },
+        });
+      }
+
+      if (url === "https://api.openai.com/v1/audio/transcriptions") {
+        return new Response(
+          JSON.stringify({
+            duration: 1.1,
+            segments: [
+              {
+                text: "morose",
+                start: 0,
+                end: 1.1,
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        );
+      }
+
+      if (url === "http://127.0.0.1:8020/v1/audio/speech") {
+        return new Response(createSilentWav(500), {
+          status: 200,
+          headers: { "content-type": "audio/wav" },
+        });
+      }
+
+      throw new Error("Unexpected fetch request: " + url);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = createTtsProvider();
+    const results = await provider.synthesizeSegments?.({
+      topicId: "english-word-00001",
+      segments: [
+        { id: "english-word-00001-seg-pronunciation", kind: "pronunciation", text: "morose" },
+        { id: "english-word-00001-seg-definition", kind: "definition", text: "中文说明 morose 中文说明" },
+      ],
+    });
+
+    expect(
+      fetchMock.mock.calls.filter(
+        (call) => String(call[0]) === "https://api.openai.com/v1/audio/speech",
+      ),
+    ).toHaveLength(1);
+    expect(
+      fetchMock.mock.calls.filter(
+        (call) => String(call[0]) === "https://api.openai.com/v1/audio/transcriptions",
+      ),
+    ).toHaveLength(1);
+    expect(
+      fetchMock.mock.calls.some(
+        (call) => String(call[0]) === "http://127.0.0.1:8020/v1/audio/speech",
+      ),
+    ).toBe(true);
+    expect(results?.[0]?.durationMs).toBe(1100);
+    expect(results?.[0]?.chunks[0]?.text).toBe("morose");
+    expect(results?.[1]?.durationMs).toBeGreaterThan(0);
   });
 });

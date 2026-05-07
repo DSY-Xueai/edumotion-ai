@@ -1,141 +1,33 @@
 # 当前项目状态
-
-- 项目是 topic-based 高中数理化 + 英语短视频生产系统，主链路为：`curriculum -> research -> draft -> review approve -> audio/subtitle -> render -> topic status`。
-- `Root` 只注册 `AutoVideo`；`AutoVideoComposition` 消费 `RenderPackage` 并委托给 `AdaptiveMotionComposition`。
-- 当前画面系统是 adaptive MotionLab：按学科、场景类型、payload 内容和 topic 语义选择视觉模块。
-- 英语内容已接入 `english` 学科，课程源来自合并去重后的 CET4/CET6 本地词库，按单词字母序稳定编号。
-- 当前英语词库由 `KyleBing/english-vocabulary` 的 CET4/CET6 UTF-8 JSON 生成，合并后共 6685 个唯一单词，其中 1868 个同时属于 CET4 和 CET6。
-- 生成产物工作区已改为视频批次归档：默认写入 `workspace/videos/YYYY-M-D/NN/<topicId>/`，其中 `NN` 为当天从 `01` 开始递增的两位序号。
-- TTS 现支持 `mock`、`openai`、`qwen-local`；`qwen-local` 通过项目内 FastAPI 包装本地 Qwen3-TTS CustomVoice，默认音色 `Vivian`。
-- 若要求全片音色严格一致，`qwen-local` 可启动 Qwen3-TTS Base 模型，用参考音频提取固定 speaker embedding 后生成全片配音；当前 clone 入口默认使用 `assets/voice-clone/reference-clean.wav`，且在首次生成时可自动拉起服务。
-- 旧 article parser / normalizer / scene components / `src/subjects/*/renderScene.tsx` / `CircularMotionPreview` 已退役。
-- `zod` 固定为 `4.3.6`，与 Remotion 当前依赖保持一致。
+- 项目是 topic-based 的数理化 + 英语短视频生成系统，主链路为 curriculum -> research -> draft -> review approve -> audio/subtitle -> render -> topic status。
+- 英语学科已接入，词库来源为合并后的 CET4/CET6 本地词库，并按单词去重后生成稳定序号。
+- 英语视频现在支持“词内分轨”发音：单词发音段走英文 TTS，后续中文解释继续走中文 TTS。
 
 # 本轮变更
-
-- 新增 Qwen3-TTS 本地配音链路：
-  - `TTS_PROVIDER=qwen-local` 时不要求 `OPENAI_API_KEY`，默认调用 `http://127.0.0.1:8020/v1/audio/speech`。
-  - 默认音色为 Qwen3-TTS CustomVoice 的 `Vivian`，语言默认 `Chinese`。
-  - 旁白改为同一 topic 的 approved script 一次性 batch 调用 Qwen，并支持固定 `QWEN_TTS_SEED` 与采样参数。
-  - 实测 CustomVoice 预设 `Vivian` 在多段生成时仍可能出现音色漂移；已新增 Base clone 服务路径，使用参考音频固定 speaker embedding 生成全片。
-  - 每个 script segment 仍保存独立 WAV，并按每段 WAV 真实时长生成字幕 chunks。
-  - 新增 WAV header 读取和同格式 WAV 拼接工具，避免用字符长度估算音频时长。
-  - 新增 `tools/qwen_tts_server/server.py`，作为项目调用 Qwen3-TTS 的 FastAPI 服务。
-  - 新增 `docs/qwen-tts-local.md` 记录 conda、pip、ModelScope 下载、服务启动和项目环境变量。
-- 修复 Remotion 音频叠播问题：音频 `<Sequence>` 不再使用 `premountFor`，避免相邻旁白在切换前被预挂载而重叠播放；画面 Sequence 保持预挂载。
-- Qwen 本地 Python 环境已验证 CUDA 版 PyTorch：`.venv-qwen` 中 `torch 2.9.0+cu128` 可识别 RTX 4060 Laptop GPU；若显示 `+cpu`，需要按 `docs/qwen-tts-local.md` 安装 cu128 wheel。
-- 课程表新增物理 topic `physics-b2-ch5-topic-001`：`平抛运动`，并为 mock research 增加平抛运动专属定义、公式和可视化提示。
-- 改造 topic workspace 路径规则：
-  - 默认根目录从 `workspace/topics` 改为 `workspace/videos`。
-  - 新 topic 会写入 `workspace/videos/YYYY-M-D/01/<topicId>/`；同一天继续生成新视频时依次使用 `02`、`03`。
-  - 同一个 topic 后续 research/draft/approved/audio/render 阶段会复用已经存在的日期/序号目录。
-  - 仍支持 `TOPIC_WORKSPACE_ROOT` 覆盖根目录；测试可用 `TOPIC_WORKSPACE_DATE` 固定日期。
-  - `.gitignore` 改为只忽略项目根目录 `/workspace/`，避免误伤 `src/lib/workspace` 和 `tests/workspace`。
-- 修复新 topic 复用旧视频画面/旧主题模板的风险：
-  - 物理：`motion-diagram` 只允许强圆周语义进入；普通力学公式如 `F=ma` 不再复用圆周轨迹图。
-  - 物理光学：折射/入射/法线/介质等语义进入 `optics-ray` 光路图。
-  - 数学：不再因为 `boardExpression` 像标题就强制进入公式板，只有真正公式表达才进入 `formula-board`。
-  - 化学：不再因为存在 `reactionLine` / `particleLabels` 就强制进入粒子实验图，必须有真实反应语义或化学方程式特征才进入 `particle-lab`。
-- 新增 `OpticsRayDiagram`：空气/水或玻璃界面、法线、入射光线、折射光线、入射角和折射角。
-- mock draft provider 改为只从当前 `research` 数据生成脚本和 visualPlan，不再带集合、运动描述、物质分类等旧 topic 专用文案。
-- subject adapter 改为当前 `canonicalTitle/sourceSummary` 驱动；fallback 文案不再写死旧主题。
-- 英语 topic 采用单词卡式分层揭示，参考 `dy_7483426954834660635.mp4` 的节奏：先出单词，再出音标/词性/释义，最后出记忆口诀。
-- 已用第一个英语 topic `english-word-00001` 生成预览成片：`workspace/videos/2026-5-7/02/english-word-00001/render/video.mp4`。
-- 公式板变量卡修复：对象型 `variableCards` 会显示为 `标签：含义`，不再出现 `[object Object]`。
-- 新增/更新测试防回归：
-  - 折射必须走 `optics-ray`。
-  - 匀速圆周运动才走 `motion-diagram`。
-  - 牛顿第二定律等普通力学公式不能进入圆周轨迹图。
-  - 函数单调性等数学 topic 不能被标题式 `boardExpression` 强行送入公式板。
-  - 物质分类等化学 topic 不能被 `reactionLine` 字段名强行送入粒子实验图。
-  - mock draft 生成必须包含当前 topic 标题，且不能混入旧主题模板词。
-- 修复测试验证稳定性：Vitest 关闭文件级并发，避免多个流水线测试同时写 `.vitest/workspace/topics` 下同名 topic manifest 导致 JSON 读写竞态。
-- 配置项目视频人声克隆参考音：
-  - 从 `voice_only.mp3` 生成 `assets/voice-clone/reference-clean.wav`，作为默认 Qwen Base clone 参考音频。
-  - 另存更强处理候选 `assets/voice-clone/reference-voice-focused.wav`，可通过 `npm run qwen:tts:clone:focused` 启动。
-  - 参考音源约 10.1 秒、含背景音乐；已转 24kHz mono WAV，并做中置人声提取、高通/低通、频域降噪和响度标准化。
-  - `qwen:tts:clone` 改为使用 `--x-vector-only-mode`，避免短参考音频转写误差影响 speaker embedding 提取。
-  - 新增根目录 `sox.py` 兼容层，补齐 Qwen TTS 依赖的 `sox.Transformer().norm().build_array()`，避免系统缺少 SoX 二进制或 Python 模块时克隆链路直接失败。
-  - 已实测 `qwen:tts:clone` 服务可启动并返回测试 WAV（`voice_clone_test.wav`），说明当前参考音配置可用。
-  - `qwen-local` 现在会在第一次渲染时自动检查并拉起 Base clone 服务，不再要求手动执行 `npm run qwen:tts:clone`。
-- 新增物理 topic `physics-b1-ch2-topic-001`：`光的反射`，并补充 mock research、反射专用视觉模块与成片验证。
-- 已生成并验证反射成片：
-  - 工作区：`workspace/videos/2026-5-7/01/physics-b1-ch2-topic-001/`
-  - 产物：`render/video.mp4`、`render/reflection-frame.png`
-  - 截帧确认了镜面反射画面、`∠i = ∠r` 和对应旁白。
+- 英语 draft 改成“发音优先”的单词卡结构：pronunciation / hook / definition / process / compare / wrap。
+- 英语 TTS 改为：英语 pronunciation 段在有 OpenAI key 时走英文语音，其余中文段继续走 Qwen 本地 TTS。
+- 英语场景标签更新为更贴近单词卡流程，便于字幕与画面对齐。
+- 抽取并确认了 dy_7483426954834660635.mp4 的文案风格，可作为后续英语单词视频模板。
 
 # 关键文件
-
-- `src/compositions/AutoVideoComposition.tsx`
-- `src/lib/curriculum/englishWordbank.ts`
-- `curriculum/pep-2019/english/wordbank.json`
-- `tools/build_english_wordbank.ts`
-- `src/compositions/adaptiveMotion/AdaptiveMotionComposition.tsx`
-- `src/compositions/adaptiveMotion/selectVisualModule.ts`
-- `src/compositions/adaptiveMotion/visualModules.tsx`
-- `src/lib/providers/createDraftProvider.ts`
-- `src/lib/audio/splitNarrationText.ts`
-- `src/lib/audio/wav.ts`
-- `tools/qwen_tts_server/server.py`
-- `tools/qwen_tts_server/requirements.txt`
-- `docs/qwen-tts-local.md`
-- `assets/voice-clone/reference-clean.wav`
-- `assets/voice-clone/reference-voice-focused.wav`
-- `sox.py`
-- `src/lib/providers/ensureQwenTtsCloneServer.ts`
-- `src/compositions/adaptiveMotion/visualModules.tsx`
-- `src/lib/providers/createResearchProvider.ts`
-- `curriculum/pep-2019/index.json`
-- `src/lib/rendering/subjectAdapter.ts`
-- `src/lib/rendering/buildRenderPackage.ts`
-- `src/lib/rendering/saveRenderPackage.ts`
-- `src/lib/pipeline/runApprovedToRender.ts`
-- `src/lib/workspace/getTopicWorkspace.ts`
-- `tests/workspace/topicManifest.test.ts`
-- `.gitignore`
-- `tests/adaptiveMotion/selectVisualModule.test.ts`
-- `tests/composition.test.tsx`
-- `tests/draft/generateDraft.test.ts`
-- `tests/rendering/subjectAdapterRegistry.test.ts`
-- `tests/providers/createTtsProvider.test.ts`
-- `tests/providers/providerConfig.test.ts`
-- `tests/providers/createMockProviders.test.ts`
-- `tests/providers/createDraftProvider.test.ts`
-- `tests/cli/doctorCommand.test.ts`
-- `tests/curriculum/loadCurriculum.test.ts`
-- `tests/rendering/subjectAdapterRegistry.test.ts`
-- `tests/composition.test.tsx`
-- `vitest.config.ts`
+- src/lib/providers/createDraftProvider.ts
+- src/lib/providers/createTtsProvider.ts
+- src/lib/rendering/subjectAdapter.ts
+- src/compositions/adaptiveMotion/AdaptiveMotionComposition.tsx
+- tests/providers/createDraftProvider.test.ts
+- tests/providers/createTtsProvider.test.ts
+- curriculum/pep-2019/english/wordbank.json
+- src/lib/curriculum/englishWordbank.ts
 
 # 运行入口
-
-- 安装依赖：`npm install`
-- 生成英语词库：`npm run english:wordbank`
-- 类型检查：`npm run lint:types`
-- 全量测试：`npm test`
-- 启动 Remotion Studio：`npm run dev`
-- 诊断：`npm run cli -- doctor`
-- 渲染已审核 topic：`npm run cli -- produce render --topic-id <topicId>`
-- 使用 mock audio 预览：`npm run cli -- produce render --topic-id <topicId> --allow-mock-audio`
-- 查看 topic 状态：`npm run cli -- topic status --topic-id <topicId>`
-- 查看英语词表：`npm run cli -- curriculum list --subject english --volume cet`
-- 启动 Qwen3-TTS 本地服务：`npm run qwen:tts`
-- 启动当前项目克隆人声 Qwen3-TTS Base 服务：`npm run qwen:tts:clone`
-- 若默认参考音残留背景音乐明显，启动更强处理参考音：`npm run qwen:tts:clone:focused`
-- Qwen 本地配音示例 topic：`physics-b2-ch5-topic-001`（平抛运动）
-- 反射成片验证 topic：`physics-b1-ch2-topic-001`
-- 英语单词示例 topic：`english-word-00001`
+- npm run cli -- curriculum list --subject english --volume cet
+- npm run cli -- produce render --topic-id english-word-00001
+- npm run qwen:tts
+- npm run dev
+- npm test
+- npm run lint:types
 
 # 当前注意事项
-
-- 新生成视频及相关流水线产物默认在 `workspace/videos/YYYY-M-D/NN/<topicId>/` 下，不再按旧的 `workspace/topics/<topicId>/` 作为默认目录。
-- 新视频应从当前 topic 的 `research/draft/approved lesson/render package` 重新生成；不得读取、参考或套用旧 topic 的视频、截图、公式或主题文案。
-- 底层组件和视觉模块可以复用，但进入模块的条件必须由当前 topic 语义和 payload 内容决定。
-- `motion-diagram` 是圆周/向心类运动专用图，不是所有物理运动和公式的默认图。
-- `particle-lab` 是反应/粒子变化图，不是所有化学 topic 的默认图。
-- `formula-board` 只适合真实公式表达，不适合把普通标题当公式展示。
-- 英语 topic 按词库序号生成，`english-word-00001` 这类 topic 直接对应单词序号。
-- 根目录 `workspace/` 和 `public/generated/` 是生成产物目录，已被 git 忽略。
-- `--allow-mock-audio` 只适合画面链路验证；正式成片需要配置真实 TTS。
-- 使用 `qwen-local` 前需要单独启动本地 Qwen3-TTS FastAPI 服务，并确保 `QWEN_TTS_BASE_URL` 与服务端口一致。
-- 当前项目已改为 `qwen-local` 首次渲染时自动拉起 Base clone 服务；手动 `npm run qwen:tts:clone` 仅作为排障入口。
+- 英语单词生成按 topic 序号推进，避免重复生成相同单词。
+- qwen-local 首次渲染会自动拉起本地 Qwen3-TTS Base clone 服务。
+- 生成正式成片仍应使用真 TTS；mock audio 只适合画面链路验证。

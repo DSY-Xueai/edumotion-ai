@@ -241,57 +241,53 @@ const buildEnglishDraft = ({
   sceneBudgets: SceneBudgetMap;
 }) => {
   const word = research.canonicalTitle;
-  const phonetic = firstResearchText(research.formulas, "");
   const meaning = firstResearchText(
     research.definitions,
-    `${word} 的中文释义。`,
+    `${word} 的中文释义`,
   );
-  const mnemonic = firstResearchText(
+  const meaningTail = meaning.replace(/[。.!！?？；;]+$/u, "");
+  const pronunciationText = word;
+  const hookText = "一秒记一个单词。";
+  const definitionText = `今天这个词叫 ${word}，意思是：${meaningTail}。`;
+  const processText = "怎么记？";
+  const compareText = firstResearchText(
     research.examples,
-    `巧记：${word} 先看音标，再看词义。`,
+    `你可以把 ${word} 想成一个具体画面，记忆上更直观。`,
   );
-  const contrast = firstResearchText(
-    research.misconceptions,
-    `别把 ${word} 和相似拼写的词混淆。`,
-  );
-  const hookText = `先别急着背 ${word}，先看它长什么样。`;
-  const definitionText = phonetic ? `${word} ${phonetic} ${meaning}` : `${word} ${meaning}`;
-  const compareText = mnemonic;
-  const wrapText = `${contrast} 再读一遍 ${word}。`;
+  const wrapText = `${word}，${meaningTail}。`;
   const scriptSegments = [
+    { id: `${topicId}-seg-pronunciation`, kind: "pronunciation", text: pronunciationText },
     { id: `${topicId}-seg-hook`, kind: "hook", text: hookText },
     { id: `${topicId}-seg-definition`, kind: "definition", text: definitionText },
+    { id: `${topicId}-seg-process`, kind: "process", text: processText },
     { id: `${topicId}-seg-compare`, kind: "compare", text: compareText },
     { id: `${topicId}-seg-wrap`, kind: "wrap", text: wrapText },
   ];
 
   return {
     toneProfile: "english-vocabulary-card",
-    durationTargetSec: 36,
-    hook: hookText,
-    summary: `${word} 的词汇记忆卡`,
+    durationTargetSec: 18,
+    hook: pronunciationText,
+    summary: `${word} 的单词记忆卡`,
     scriptSegments,
     storyboardScenes: [
-      scene({ topicId, type: "hook", durationSec: sceneBudgets.hook / 2 }),
-      scene({
-        topicId,
-        type: "definition",
-        durationSec: sceneBudgets.definition / 2,
-      }),
-      scene({ topicId, type: "compare", durationSec: sceneBudgets.compare / 2 }),
-      scene({ topicId, type: "wrap", durationSec: sceneBudgets.wrap / 2 }),
+      scene({ topicId, type: "hook", segmentKind: "pronunciation", durationSec: 2 }),
+      scene({ topicId, type: "definition", segmentKind: "hook", durationSec: 2 }),
+      scene({ topicId, type: "process", segmentKind: "definition", durationSec: 4 }),
+      scene({ topicId, type: "compare", segmentKind: "process", durationSec: 4 }),
+      scene({ topicId, type: "pitfall", segmentKind: "compare", durationSec: 3 }),
+      scene({ topicId, type: "wrap", segmentKind: "wrap", durationSec: 2 }),
     ],
     subtitleDraft: subtitlesFor(topicId, scriptSegments),
     visualPlan: visualPlanFromResearch(research, [
       "单词卡式分层",
-      "音标和词性先出",
-      "中文释义与口诀后出",
+      "先出英文发音再出中文",
+      "中文释义与因果记忆法",
       "整词回看",
     ]),
     qaNotes: [],
   };
 };
-
 const draftPayloadSchema = {
   type: "object",
   additionalProperties: false,
@@ -385,7 +381,7 @@ export const createDraftProvider = (): DraftProvider => {
           schema: draftPayloadSchema,
           systemPrompt:
             topicId.startsWith("english-")
-              ? "You are a senior Chinese English vocabulary short-video lesson designer. Return only structured JSON for a one-word-one-video lesson draft that matches a layered vocabulary card style."
+              ? "You are a senior Chinese English vocabulary short-video lesson designer. Return only structured JSON for a one-word-one-video lesson draft that matches a layered vocabulary card style, with the first script segment dedicated to standard English pronunciation of the word."
               : "You are a senior Chinese high-school STEM short-video lesson designer. Return only structured JSON for a 60-90 second educational lesson draft.",
           userPrompt:
             topicId.startsWith("english-")
@@ -402,7 +398,9 @@ export const createDraftProvider = (): DraftProvider => {
                   `Visualization hints: ${research.visualizationHints.join(" | ")}`,
                   `Scene budgets: ${JSON.stringify(sceneBudgets)}`,
                   "Return Chinese content only.",
-                  "Use a layered vocabulary-card style similar to a short-form word memo video: hook, definition, mnemonic comparison, wrap.",
+                  "Use a layered vocabulary-card style similar to a short-form word memo video.",
+                  "The first script segment must be a pronunciation-only segment whose text is the English word itself.",
+                  "Then use Chinese segments for hook, meaning, memory hook, and wrap.",
                   "Every storyboard scene must reference existing script segment ids.",
                   "Keep the video short and compact.",
                   "Do not write STEM framing.",
