@@ -237,7 +237,18 @@ describe("AutoVideoComposition", () => {
 
     expect(html).toContain('data-motion-lab-subject="english"');
     expect(html).toContain('data-visual-module="vocabulary-card"');
+    expect(html).toContain('data-english-template="dopamine-vocab"');
+    expect(html).toContain('data-english-background="dopamine-study"');
+    expect(html).toContain('data-english-accent="highlighter-swish"');
+    expect(html).toContain('data-english-card-layer="mint-shadow"');
+    expect(html).toContain('data-english-card-layer="butter-shadow"');
+    expect(html).not.toContain('data-english-template="chalkboard-vocab"');
+    expect(html).not.toContain('data-english-icon="lightbulb"');
+    expect(html).not.toContain('data-english-icon="graduate-star"');
+    expect(html).not.toContain("ENGLISH VOCAB");
+    expect(html).not.toContain("Daily Word");
     expect(html).toContain("morose");
+    expect(html).toContain("/məˈrəʊs/");
     expect(html).toContain("郁闷的");
     expect(html).toContain("cue-english-1");
     expect(html).toContain("一秒钟记一个单词。");

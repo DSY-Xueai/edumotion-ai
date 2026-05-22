@@ -145,6 +145,68 @@ export const SubjectBadge = ({
   const reveal = revealValue(frame);
   const sceneLabel = asString(scene.payload.sceneLabel, scene.kind);
 
+  if (style.label === "ENGLISH VOCAB") {
+    return (
+      <>
+        <div
+          data-english-accent="highlighter-swish"
+          style={{
+            position: "absolute",
+            left: 10,
+            top: 34,
+            width: 180,
+            height: 24,
+            borderRadius: 999,
+            opacity: reveal * 0.72,
+            background: "rgba(250, 204, 21, 0.42)",
+            transform: "rotate(-4deg)",
+            filter: "blur(0.2px)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            right: 16,
+            top: 18,
+            width: 132,
+            height: 132,
+            borderRadius: 28,
+            opacity: reveal * 0.38,
+            background: "rgba(255, 255, 255, 0.44)",
+            transform: "rotate(8deg)",
+            boxShadow: "0 18px 42px rgba(15, 23, 42, 0.08)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            left: 120,
+            right: 120,
+            top: 48,
+            height: 2,
+            opacity: reveal * 0.34,
+            background:
+              "linear-gradient(90deg, transparent, rgba(20,184,166,0.5), transparent)",
+          }}
+        />
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            right: 28,
+            top: 86,
+            color: "rgba(15,23,42,0.34)",
+            fontSize: 20,
+            fontWeight: 900,
+            opacity: 0,
+          }}
+        >
+          {sceneLabel}
+        </div>
+      </>
+    );
+  }
+
   return (
     <div
       style={{
@@ -383,53 +445,148 @@ export const VocabularyCard = ({
 }) => {
   const word = asString(scene.payload.word, asString(scene.payload.title));
   const meaning = asString(scene.payload.meaning);
+  const phonetic = asString(scene.payload.phonetic);
+  const wordFontSize = word.length > 12 ? 82 : word.length > 8 ? 98 : 124;
+  const meaningFontSize = meaning.length > 18 ? 34 : 44;
 
   return (
     <div
+      data-english-template="dopamine-vocab"
       style={{
-        ...panel(style),
-        padding: 44,
-        minHeight: 760,
+        position: "relative",
+        minHeight: 790,
+        padding: "64px 54px",
+        borderRadius: 34,
+        background:
+          "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.88))",
+        border: "1px solid rgba(15,23,42,0.06)",
+        boxShadow:
+          "0 30px 70px rgba(30,41,59,0.18), 0 10px 26px rgba(20,184,166,0.10)",
         display: "grid",
-        gridTemplateRows: "1fr auto",
+        gridTemplateRows: "1fr",
         alignItems: "center",
+        overflow: "visible",
       }}
     >
+      <div
+        data-english-card-layer="mint-shadow"
+        style={{
+          position: "absolute",
+          right: -14,
+          bottom: -18,
+          width: "82%",
+          height: 110,
+          borderRadius: 34,
+          background: "rgba(134, 239, 172, 0.36)",
+          transform: "rotate(2.4deg)",
+          pointerEvents: "none",
+          zIndex: -1,
+        }}
+      />
+      <div
+        data-english-card-layer="butter-shadow"
+        style={{
+          position: "absolute",
+          left: -16,
+          top: -14,
+          width: "76%",
+          height: 94,
+          borderRadius: 34,
+          background: "rgba(254, 240, 138, 0.42)",
+          transform: "rotate(-2.8deg)",
+          pointerEvents: "none",
+          zIndex: -1,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          left: 54,
+          top: 58,
+          width: 150,
+          height: 18,
+          borderRadius: 999,
+          background: "rgba(250, 204, 21, 0.45)",
+          transform: "rotate(-3deg)",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          right: 58,
+          top: 54,
+          width: 46,
+          height: 46,
+          borderRadius: 14,
+          background: "rgba(125, 211, 252, 0.48)",
+          transform: "rotate(10deg)",
+        }}
+      />
       <div
         style={{
           display: "grid",
           placeItems: "center",
-          minHeight: 560,
+          minHeight: 610,
         }}
       >
         <div
           style={{
             textAlign: "center",
             display: "grid",
-            gap: 20,
+            gap: 26,
             justifyItems: "center",
+            width: "100%",
           }}
         >
           <div
             style={{
-              color: style.ink,
-              fontSize: word.length > 9 ? 88 : 108,
+              color: "#172033",
+              fontSize: wordFontSize,
               lineHeight: 1,
               fontWeight: 900,
               letterSpacing: 0,
               textAlign: "center",
               wordBreak: "break-word",
+              maxWidth: "100%",
+              textShadow: "0 5px 0 rgba(125, 211, 252, 0.18)",
             }}
           >
             {word}
           </div>
+          {phonetic ? (
+            <div
+              style={{
+                color: "rgba(51,65,85,0.7)",
+                fontFamily: "'Trebuchet MS', 'Microsoft YaHei', Arial, sans-serif",
+                fontSize: phonetic.length > 18 ? 28 : 34,
+                fontWeight: 650,
+                lineHeight: 1.2,
+                letterSpacing: 0,
+              }}
+            >
+              {phonetic}
+            </div>
+          ) : null}
           <div
             style={{
-              color: style.secondary,
-              fontSize: meaning.length > 20 ? 30 : 36,
-              fontWeight: 850,
-              lineHeight: 1.34,
-              maxWidth: "82%",
+              width: 132,
+              height: 12,
+              borderRadius: 999,
+              background: "linear-gradient(90deg, #fde047, #86efac)",
+              boxShadow: "0 10px 20px rgba(250, 204, 21, 0.2)",
+            }}
+          />
+          <div
+            style={{
+              color: "#0f766e",
+              fontSize: meaningFontSize,
+              fontWeight: 780,
+              lineHeight: 1.24,
+              maxWidth: "88%",
+              padding: "14px 28px",
+              borderRadius: 999,
+              background: "rgba(240, 253, 244, 0.92)",
+              border: "1px solid rgba(20, 184, 166, 0.14)",
               textAlign: "center",
             }}
           >

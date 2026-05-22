@@ -68,10 +68,12 @@ const CaptionStage = ({
   cueId,
   text,
   durationInFrames,
+  variant = "dark",
 }: {
   cueId?: string;
   text: string;
   durationInFrames: number;
+  variant?: "dark" | "dopamine";
 }) => {
   const frame = useCurrentFrame();
   const lines = splitCaption(text);
@@ -90,11 +92,18 @@ const CaptionStage = ({
         left: 58,
         right: 58,
         bottom: 116,
-        padding: "28px 34px",
-        borderRadius: 30,
-        background: "rgba(2, 11, 15, 0.76)",
-        outline: "1px solid rgba(255,255,255,0.13)",
-        boxShadow: "0 30px 80px rgba(0, 0, 0, 0.45)",
+        padding: variant === "dopamine" ? "24px 32px" : "28px 34px",
+        borderRadius: variant === "dopamine" ? 24 : 30,
+        background:
+          variant === "dopamine" ? "rgba(255, 255, 255, 0.84)" : "rgba(2, 11, 15, 0.76)",
+        outline:
+          variant === "dopamine"
+            ? "1px solid rgba(15, 23, 42, 0.07)"
+            : "1px solid rgba(255,255,255,0.13)",
+        boxShadow:
+          variant === "dopamine"
+            ? "0 18px 42px rgba(15, 23, 42, 0.12)"
+            : "0 30px 80px rgba(0, 0, 0, 0.45)",
         opacity,
       }}
     >
@@ -102,10 +111,10 @@ const CaptionStage = ({
         <div
           key={line}
           style={{
-            color: "#ffffff",
+            color: variant === "dopamine" ? "#172033" : "#ffffff",
             fontSize: line.length > 32 ? 33 : 38,
             lineHeight: 1.36,
-            fontWeight: 850,
+            fontWeight: variant === "dopamine" ? 780 : 850,
             textAlign: "center",
           }}
         >
@@ -148,15 +157,21 @@ const AdaptiveScene = ({
     renderPackage.subject === "english"
       ? englishSceneLabelMap[scene.kind] ?? scene.kind
       : sceneLabelMap[scene.kind] ?? scene.kind;
+  const isEnglish = renderPackage.subject === "english";
 
   return (
     <AbsoluteFill
       data-motion-lab-subject={renderPackage.subject}
       data-visual-module={module}
       style={{
-        background: style.background,
+        background: isEnglish
+          ? "linear-gradient(180deg, #fff8df 0%, #e6fff2 46%, #dff4ff 100%)"
+          : style.background,
         color: style.ink,
-        fontFamily: "'Microsoft YaHei', 'Trebuchet MS', Arial, sans-serif",
+        fontFamily:
+          isEnglish
+            ? "'Microsoft YaHei', 'Trebuchet MS', 'Segoe UI', Arial, sans-serif"
+            : "'Microsoft YaHei', 'Trebuchet MS', Arial, sans-serif",
         overflow: "hidden",
       }}
     >
@@ -164,9 +179,24 @@ const AdaptiveScene = ({
         style={{
           position: "absolute",
           inset: 0,
-          background: `radial-gradient(circle at 22% 14%, ${style.accent}28, transparent 34%), radial-gradient(circle at 82% 72%, ${style.secondary}22, transparent 36%)`,
+          background: isEnglish
+            ? "radial-gradient(circle at 18% 18%, rgba(125, 211, 252, 0.46), transparent 35%), radial-gradient(circle at 88% 20%, rgba(254, 240, 138, 0.72), transparent 34%), radial-gradient(circle at 78% 72%, rgba(134, 239, 172, 0.48), transparent 38%)"
+            : `radial-gradient(circle at 22% 14%, ${style.accent}28, transparent 34%), radial-gradient(circle at 82% 72%, ${style.secondary}22, transparent 36%)`,
         }}
       />
+      {isEnglish ? (
+        <div
+          data-english-background="dopamine-study"
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundImage:
+              "linear-gradient(120deg, rgba(255,255,255,0.52), transparent 42%), radial-gradient(circle at 12px 12px, rgba(15,23,42,0.055) 1px, transparent 1.6px)",
+            backgroundSize: "100% 100%, 34px 34px",
+            opacity: 0.72,
+          }}
+        />
+      ) : null}
       <div style={{ position: "absolute", left: 58, right: 58, top: 56 }}>
         <SubjectBadge
           scene={{
@@ -188,7 +218,7 @@ const AdaptiveScene = ({
           position: "absolute",
           left: 58,
           right: 58,
-          top: 258,
+          top: isEnglish ? 190 : 258,
         }}
       >
         {renderVisualModule({ module, scene, style })}
@@ -197,6 +227,7 @@ const AdaptiveScene = ({
         cueId={cue?.id}
         text={captionText}
         durationInFrames={scene.durationInFrames}
+        variant={isEnglish ? "dopamine" : "dark"}
       />
       <div
         style={{
@@ -206,8 +237,9 @@ const AdaptiveScene = ({
           bottom: 54,
           height: 10,
           borderRadius: 999,
-          background: "rgba(255,255,255,0.12)",
+          background: isEnglish ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.12)",
           overflow: "hidden",
+          boxShadow: isEnglish ? "0 10px 24px rgba(15, 23, 42, 0.08)" : undefined,
         }}
       >
         <div
