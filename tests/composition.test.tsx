@@ -1,8 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AutoVideoComposition } from "../src/compositions/AutoVideoComposition";
 import type { RenderPackage } from "../src/lib/rendering/schema";
+
+let remotionFrame = 12;
 
 vi.mock("remotion", () => {
   return {
@@ -25,7 +27,7 @@ vi.mock("remotion", () => {
     Easing: {
       bezier: () => (value: number) => value,
     },
-    useCurrentFrame: () => 12,
+    useCurrentFrame: () => remotionFrame,
     useVideoConfig: () => ({ fps: 30 }),
     interpolate: () => 1,
     staticFile: (value: string) => `/static/${value}`,
@@ -33,6 +35,10 @@ vi.mock("remotion", () => {
 });
 
 describe("AutoVideoComposition", () => {
+  beforeEach(() => {
+    remotionFrame = 12;
+  });
+
   it("renders subject-specific scene content from a shared render package", () => {
     const spec: RenderPackage = {
       topicId: "topic-1",
@@ -215,8 +221,8 @@ describe("AutoVideoComposition", () => {
       scenes: [
         {
           id: "scene-english",
-          kind: "hook",
-          component: "english/hook",
+          kind: "definition",
+          component: "english/definition",
           durationInFrames: 90,
           payload: {
             title: "morose",
@@ -237,6 +243,10 @@ describe("AutoVideoComposition", () => {
 
     expect(html).toContain('data-motion-lab-subject="english"');
     expect(html).toContain('data-visual-module="vocabulary-card"');
+    expect(html).toContain('data-english-word-entrance="roll-in"');
+    expect(html).toContain('data-english-word-entrance-phase="waiting"');
+    expect(html).not.toContain('data-english-edit-pass="camera"');
+    expect(html).not.toContain('data-english-edit-flash="scene-boundary"');
     expect(html).toContain('data-english-template="dopamine-vocab"');
     expect(html).toContain('data-english-background="dopamine-study"');
     expect(html).toContain('data-english-accent="highlighter-swish"');
@@ -254,6 +264,88 @@ describe("AutoVideoComposition", () => {
     expect(html).toContain("一秒钟记一个单词。");
     expect(html).not.toContain("adj.");
     expect(html).not.toContain("巧记");
+  });
+
+  it("times the english word roll-in against the definition subtitle cue", () => {
+    remotionFrame = 90;
+
+    const spec: RenderPackage = {
+      topicId: "english-word-00002",
+      lessonVersion: 1,
+      canonicalTitle: "abandon",
+      approvedAt: "2026-05-13T00:00:00.000Z",
+      generatedAt: "2026-05-13T00:00:00.000Z",
+      totalDurationMs: 17460,
+      meta: {
+        topicId: "english-word-00002",
+        subject: "english",
+        aspectRatio: "9:16",
+      },
+      subject: "english",
+      themeTokens: {
+        palette: "english-vocab-card",
+        typography: "english-serif",
+        accent: "#ff8d7a",
+      },
+      audioTracks: [],
+      subtitleTrack: {
+        topicId: "english-word-00002",
+        subject: "english",
+        cues: [
+          {
+            id: "english-word-00002-seg-hook:1",
+            segmentId: "english-word-00002-seg-hook",
+            text: "一秒钟记一个单词。",
+            startMs: 0,
+            endMs: 2080,
+          },
+          {
+            id: "english-word-00002-seg-definition:1",
+            segmentId: "english-word-00002-seg-definition",
+            text: "今天要记的单词是 abandon，意思是：丢弃；放弃，抛弃。",
+            startMs: 2080,
+            endMs: 7580,
+          },
+        ],
+      },
+      scenes: [
+        {
+          id: "scene-english",
+          kind: "definition",
+          component: "english/definition",
+          durationInFrames: 524,
+          payload: {
+            title: "abandon",
+            narration: "一秒钟记一个单词。 今天要记的单词是 abandon，意思是：丢弃；放弃，抛弃。",
+            word: "abandon",
+            phonetic: "/əˈbændən/",
+            meaning: "丢弃；放弃，抛弃",
+            subtitleCues: [
+              {
+                id: "english-word-00002-seg-hook:1",
+                segmentId: "english-word-00002-seg-hook",
+                text: "一秒钟记一个单词。",
+                startMs: 0,
+                endMs: 2080,
+              },
+              {
+                id: "english-word-00002-seg-definition:1",
+                segmentId: "english-word-00002-seg-definition",
+                text: "今天要记的单词是 abandon，意思是：丢弃；放弃，抛弃。",
+                startMs: 2080,
+                endMs: 7580,
+              },
+            ],
+          },
+        },
+      ],
+      durationInFrames: 524,
+    };
+
+    const html = renderToStaticMarkup(<AutoVideoComposition {...spec} />);
+
+    expect(html).toContain('data-english-word-entrance="roll-in"');
+    expect(html).toContain('data-english-word-entrance-phase="rolling"');
   });
 
   it("does not premount audio sequences because premounting causes overlapping narration", () => {

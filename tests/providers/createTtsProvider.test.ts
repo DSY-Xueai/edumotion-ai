@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createTtsProvider } from "../../src/lib/providers/createTtsProvider";
+import { readWavInfo } from "../../src/lib/audio/wav";
 
 const createSilentWav = (durationMs: number) => {
   const sampleRate = 16000;
@@ -42,6 +43,57 @@ const createSilentWav = (durationMs: number) => {
   return new Uint8Array(buffer);
 };
 
+const createToneWav = (durationMs: number) => {
+  const sampleRate = 16000;
+  const bytesPerSample = 2;
+  const sampleCount = Math.max(1, Math.round((durationMs / 1000) * sampleRate));
+  const dataSize = sampleCount * bytesPerSample;
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+  let offset = 0;
+
+  const writeString = (value: string) => {
+    for (let index = 0; index < value.length; index += 1) {
+      view.setUint8(offset, value.charCodeAt(index));
+      offset += 1;
+    }
+  };
+
+  writeString("RIFF");
+  view.setUint32(offset, 36 + dataSize, true);
+  offset += 4;
+  writeString("WAVE");
+  writeString("fmt ");
+  view.setUint32(offset, 16, true);
+  offset += 4;
+  view.setUint16(offset, 1, true);
+  offset += 2;
+  view.setUint16(offset, 1, true);
+  offset += 2;
+  view.setUint32(offset, sampleRate, true);
+  offset += 4;
+  view.setUint32(offset, sampleRate * bytesPerSample, true);
+  offset += 4;
+  view.setUint16(offset, bytesPerSample, true);
+  offset += 2;
+  view.setUint16(offset, 16, true);
+  offset += 2;
+  writeString("data");
+  view.setUint32(offset, dataSize, true);
+  offset += 4;
+
+  for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
+    const amplitude = Math.round(
+      Math.sin((2 * Math.PI * 220 * sampleIndex) / sampleRate) * 9000,
+    );
+
+    view.setInt16(offset, amplitude, true);
+    offset += 2;
+  }
+
+  return new Uint8Array(buffer);
+};
+
 describe("createTtsProvider", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -60,7 +112,7 @@ describe("createTtsProvider", () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(
-        new Response(Uint8Array.from([1, 2, 3]), {
+        new Response(createToneWav(1500), {
           status: 200,
           headers: {
             "content-type": "audio/wav",
@@ -97,7 +149,7 @@ describe("createTtsProvider", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api.openai.com/v1/audio/speech");
     expect(fetchMock.mock.calls[1]?.[0]).toBe("https://api.openai.com/v1/audio/transcriptions");
     expect(result.audioFile.extension).toBe("wav");
-    expect(Array.from(result.audioFile.data)).toEqual([1, 2, 3]);
+    expect(readWavInfo(result.audioFile.data).durationMs).toBe(1500);
     expect(result.durationMs).toBe(1500);
     expect(result.chunks).toEqual([
       { text: "first", startMs: 0, endMs: 700 },
@@ -120,6 +172,47 @@ describe("createTtsProvider", () => {
     expect(result.chunks).toEqual([{ text: "definition line", startMs: 0, endMs: 14000 }]);
   });
 
+  it("keeps english mock preview audio compact enough to avoid long frozen subtitles", async () => {
+    vi.stubEnv("PIPELINE_PROVIDER_MODE", "mock");
+    vi.stubEnv("TTS_PROVIDER", "mock");
+
+    const provider = createTtsProvider();
+    const segments = [
+      { id: "english-word-00005-seg-hook", kind: "hook", text: "一秒钟记一个单词。" },
+      {
+        id: "english-word-00005-seg-definition",
+        kind: "definition",
+        text: "今天要记的单词是 abide，意思是：忍受；遵守。",
+      },
+      { id: "english-word-00005-seg-process", kind: "process", text: "怎么记？" },
+      { id: "english-word-00005-seg-compare-lead", kind: "compare", text: "忍受不舒服，也照规则做，" },
+      { id: "english-word-00005-seg-pitfall", kind: "pitfall", text: "这就是 abide 的动作。" },
+      { id: "english-word-00005-seg-pronunciation", kind: "pronunciation", text: "abide" },
+      { id: "english-word-00005-seg-wrap", kind: "wrap", text: "abide，忍受；遵守。" },
+    ];
+
+    const results = await Promise.all(
+      segments.map((segment) =>
+        provider.synthesizeSegment({
+          topicId: "english-word-00005",
+          segment,
+        }),
+      ),
+    );
+    const totalDurationMs = results.reduce((total, result) => total + result.durationMs, 0);
+
+    expect(totalDurationMs).toBeLessThanOrEqual(24000);
+    expect(results.map((result) => result.durationMs)).toEqual([
+      1600,
+      3600,
+      1200,
+      2600,
+      2400,
+      1200,
+      2600,
+    ]);
+  });
+
   it("supports a custom OpenAI-compatible base URL for speech and transcription", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("PIPELINE_PROVIDER_MODE", "openai");
@@ -128,7 +221,7 @@ describe("createTtsProvider", () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(
-        new Response(Uint8Array.from([1, 2, 3]), {
+        new Response(createToneWav(1200), {
           status: 200,
           headers: { "content-type": "audio/wav" },
         }),
@@ -265,7 +358,7 @@ describe("createTtsProvider", () => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
 
       if (url === "https://api.openai.com/v1/audio/speech") {
-        return new Response(Uint8Array.from([1, 2, 3]), { status: 200, headers: { "content-type": "audio/wav" } });
+        return new Response(createToneWav(1100), { status: 200, headers: { "content-type": "audio/wav" } });
       }
 
       if (url === "https://api.openai.com/v1/audio/transcriptions") {
@@ -338,5 +431,57 @@ describe("createTtsProvider", () => {
 
     expect(results?.[0]?.chunks[0]?.text).toBe("abandon");
     expect(results?.[1]?.chunks[0]?.text).toBe("中文说明。");
+  });
+
+  it("caps overlong local English pronunciation audio to a short word beat", async () => {
+    vi.stubEnv("PIPELINE_PROVIDER_MODE", "mock");
+    vi.stubEnv("TTS_PROVIDER", "qwen-local");
+    vi.stubEnv("QWEN_TTS_BASE_URL", "http://127.0.0.1:8020");
+    vi.stubEnv("QWEN_TTS_SPEAKER", "Vivian");
+    vi.stubEnv("QWEN_TTS_AUTO_START", "false");
+
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      new Response(createToneWav(10900), {
+        status: 200,
+        headers: { "content-type": "audio/wav" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = createTtsProvider();
+    const result = await provider.synthesizeSegment({
+      topicId: "english-word-00007",
+      segment: { id: "english-word-00007-seg-pronunciation", kind: "pronunciation", text: "able" },
+    });
+
+    expect(result.durationMs).toBe(2500);
+    expect(readWavInfo(result.audioFile.data).durationMs).toBe(2500);
+    expect(result.chunks).toEqual([{ text: "able", startMs: 0, endMs: 2500 }]);
+  });
+
+  it("caps overlong local English-video Chinese segments below the subtitle limit", async () => {
+    vi.stubEnv("PIPELINE_PROVIDER_MODE", "mock");
+    vi.stubEnv("TTS_PROVIDER", "qwen-local");
+    vi.stubEnv("QWEN_TTS_BASE_URL", "http://127.0.0.1:8020");
+    vi.stubEnv("QWEN_TTS_SPEAKER", "Vivian");
+    vi.stubEnv("QWEN_TTS_AUTO_START", "false");
+
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      new Response(createToneWav(8240), {
+        status: 200,
+        headers: { "content-type": "audio/wav" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = createTtsProvider();
+    const result = await provider.synthesizeSegment({
+      topicId: "english-word-00002",
+      segment: { id: "english-word-00002-seg-definition", kind: "definition", text: "第2个，意思：丢弃、放弃。" },
+    });
+
+    expect(result.durationMs).toBe(5500);
+    expect(readWavInfo(result.audioFile.data).durationMs).toBe(5500);
+    expect(result.chunks).toEqual([{ text: "第2个，意思：丢弃、放弃。", startMs: 0, endMs: 5500 }]);
   });
 });

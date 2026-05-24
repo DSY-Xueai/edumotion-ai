@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { Easing, interpolate, useCurrentFrame } from "remotion";
+import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { RenderPackage, RenderPackageScene } from "../../lib/rendering/schema";
 import type { VisualModule } from "./selectVisualModule";
 
@@ -99,6 +99,152 @@ const revealValue = (frame: number, delay = 0) =>
     ...clamp,
     easing: Easing.bezier(0.16, 1, 0.3, 1),
   });
+
+type WordRollInTiming = {
+  startFrame: number;
+  landingFrame: number;
+};
+
+const fallbackWordRollInTiming = (durationInFrames: number): WordRollInTiming => {
+  const startFrame = Math.max(8, Math.round(durationInFrames * 0.4));
+  const landingFrame = Math.min(
+    Math.max(startFrame + 1, durationInFrames - 1),
+    Math.max(startFrame + 18, Math.round(durationInFrames * 0.98)),
+  );
+
+  return { startFrame, landingFrame };
+};
+
+const isSubtitleCueRecord = (
+  value: unknown,
+): value is { segmentId: string; text: string; startMs: number; endMs: number } => {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const cue = value as Record<string, unknown>;
+
+  return (
+    typeof cue.segmentId === "string" &&
+    typeof cue.text === "string" &&
+    typeof cue.startMs === "number" &&
+    typeof cue.endMs === "number"
+  );
+};
+
+const clampNumber = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
+
+const getWordArrivalRatio = ({ text, word }: { text: string; word: string }) => {
+  const index = text.toLowerCase().indexOf(word.toLowerCase());
+
+  if (index === -1) {
+    return 0.5;
+  }
+
+  return clampNumber(index / Math.max(1, text.length), 0.35, 0.72);
+};
+
+const getWordRollInTiming = ({
+  scene,
+  word,
+  fps,
+}: {
+  scene: RenderPackageScene;
+  word: string;
+  fps: number;
+}): WordRollInTiming => {
+  const fallback = fallbackWordRollInTiming(scene.durationInFrames);
+  const subtitleCues = Array.isArray(scene.payload.subtitleCues)
+    ? scene.payload.subtitleCues.filter(isSubtitleCueRecord)
+    : [];
+  const definitionCue = subtitleCues.find((cue) =>
+    cue.segmentId.includes("-seg-definition"),
+  );
+
+  if (!definitionCue || subtitleCues.length === 0) {
+    return fallback;
+  }
+
+  const sceneStartMs = Math.min(...subtitleCues.map((cue) => cue.startMs));
+  const cueStartFrame = Math.round(((definitionCue.startMs - sceneStartMs) / 1000) * fps);
+  const cueDurationFrames = Math.max(
+    1,
+    Math.round(((definitionCue.endMs - definitionCue.startMs) / 1000) * fps),
+  );
+  const landingFrame = Math.min(
+    scene.durationInFrames - 1,
+    Math.max(
+      cueStartFrame + 1,
+      Math.round(
+        cueStartFrame +
+          cueDurationFrames *
+            getWordArrivalRatio({ text: definitionCue.text, word }),
+      ),
+    ),
+  );
+  const rollDuration = Math.min(42, Math.max(24, Math.round(cueDurationFrames * 0.28)));
+
+  return {
+    startFrame: Math.max(0, landingFrame - rollDuration),
+    landingFrame,
+  };
+};
+
+const getWordRollInTransform = ({
+  frame,
+  timing,
+}: {
+  frame: number;
+  timing: WordRollInTiming;
+}) => {
+  const progress = interpolate(frame, [timing.startFrame, timing.landingFrame], [0, 1], {
+    ...clamp,
+    easing: Easing.bezier(0.16, 1, 0.3, 1),
+  });
+  const x = interpolate(progress, [0, 1], [-980, 0], clamp);
+  const y = interpolate(progress, [0, 1], [-220, 0], clamp);
+  const rotation = interpolate(progress, [0, 1], [-180, 0], clamp);
+  const scale = interpolate(progress, [0, 1], [0.9, 1], clamp);
+
+  return `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0) rotate(${rotation.toFixed(2)}deg) scale(${scale.toFixed(4)})`;
+};
+
+const getWordRollInPhase = ({
+  frame,
+  timing,
+}: {
+  frame: number;
+  timing: WordRollInTiming;
+}) => {
+  if (frame < timing.startFrame) {
+    return "waiting";
+  }
+
+  if (frame >= timing.landingFrame) {
+    return "settled";
+  }
+
+  return "rolling";
+};
+
+const getWordRollInOpacity = ({
+  frame,
+  timing,
+}: {
+  frame: number;
+  timing: WordRollInTiming;
+}) => {
+  if (frame < timing.startFrame) {
+    return 0;
+  }
+
+  if (frame >= timing.startFrame + 4) {
+    return 1;
+  }
+
+  return interpolate(frame, [timing.startFrame, timing.startFrame + 4], [0, 1], clamp);
+};
 
 const StaggeredCard = ({
   children,
@@ -443,11 +589,23 @@ export const VocabularyCard = ({
   scene: RenderPackageScene;
   style: SubjectStyle;
 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
   const word = asString(scene.payload.word, asString(scene.payload.title));
   const meaning = asString(scene.payload.meaning);
   const phonetic = asString(scene.payload.phonetic);
   const wordFontSize = word.length > 12 ? 82 : word.length > 8 ? 98 : 124;
   const meaningFontSize = meaning.length > 18 ? 34 : 44;
+  const shouldRollWordIn = scene.kind === "definition";
+  const wordRollInTiming = shouldRollWordIn
+    ? getWordRollInTiming({ scene, word, fps })
+    : undefined;
+  const wordRollInPhase = shouldRollWordIn
+    ? getWordRollInPhase({
+        frame,
+        timing: wordRollInTiming!,
+      })
+    : undefined;
 
   return (
     <div
@@ -539,6 +697,8 @@ export const VocabularyCard = ({
           }}
         >
           <div
+            data-english-word-entrance={shouldRollWordIn ? "roll-in" : undefined}
+            data-english-word-entrance-phase={wordRollInPhase}
             style={{
               color: "#172033",
               fontSize: wordFontSize,
@@ -549,6 +709,20 @@ export const VocabularyCard = ({
               wordBreak: "break-word",
               maxWidth: "100%",
               textShadow: "0 5px 0 rgba(125, 211, 252, 0.18)",
+              transform: shouldRollWordIn
+                ? getWordRollInTransform({
+                    frame,
+                    timing: wordRollInTiming!,
+                  })
+                : undefined,
+              transformOrigin: "50% 56%",
+              opacity: shouldRollWordIn
+                ? getWordRollInOpacity({
+                    frame,
+                    timing: wordRollInTiming!,
+                  })
+                : undefined,
+              willChange: shouldRollWordIn ? "transform" : undefined,
             }}
           >
             {word}

@@ -8,6 +8,14 @@ type WavInfo = {
   durationMs: number;
 };
 
+type TrimmedWav = {
+  bytes: Uint8Array<ArrayBuffer>;
+  durationMs: number;
+  trimStartMs: number;
+  trimEndMs: number;
+  trimmed: boolean;
+};
+
 const readAscii = (view: DataView, offset: number, length: number) => {
   let value = "";
 
@@ -26,6 +34,40 @@ const writeAscii = (
   for (let index = 0; index < value.length; index += 1) {
     view.setUint8(offset + index, value.charCodeAt(index));
   }
+};
+
+const writeWavHeader = (info: WavInfo, dataSize: number) => {
+  const output = new Uint8Array(new ArrayBuffer(44 + dataSize));
+  const view = new DataView(output.buffer);
+  let offset = 0;
+
+  writeAscii(view, offset, "RIFF");
+  offset += 4;
+  view.setUint32(offset, 36 + dataSize, true);
+  offset += 4;
+  writeAscii(view, offset, "WAVE");
+  offset += 4;
+  writeAscii(view, offset, "fmt ");
+  offset += 4;
+  view.setUint32(offset, 16, true);
+  offset += 4;
+  view.setUint16(offset, 1, true);
+  offset += 2;
+  view.setUint16(offset, info.channelCount, true);
+  offset += 2;
+  view.setUint32(offset, info.sampleRate, true);
+  offset += 4;
+  view.setUint32(offset, info.sampleRate * info.blockAlign, true);
+  offset += 4;
+  view.setUint16(offset, info.blockAlign, true);
+  offset += 2;
+  view.setUint16(offset, info.bitsPerSample, true);
+  offset += 2;
+  writeAscii(view, offset, "data");
+  offset += 4;
+  view.setUint32(offset, dataSize, true);
+
+  return output;
 };
 
 export const readWavInfo = (bytes: Uint8Array): WavInfo => {
@@ -122,36 +164,8 @@ export const concatenateWavFiles = (
   }
 
   const dataSize = parsed.reduce((total, { info }) => total + info.dataSize, 0);
-  const output = new Uint8Array(new ArrayBuffer(44 + dataSize));
-  const view = new DataView(output.buffer);
-  let offset = 0;
-
-  writeAscii(view, offset, "RIFF");
-  offset += 4;
-  view.setUint32(offset, 36 + dataSize, true);
-  offset += 4;
-  writeAscii(view, offset, "WAVE");
-  offset += 4;
-  writeAscii(view, offset, "fmt ");
-  offset += 4;
-  view.setUint32(offset, 16, true);
-  offset += 4;
-  view.setUint16(offset, 1, true);
-  offset += 2;
-  view.setUint16(offset, first.channelCount, true);
-  offset += 2;
-  view.setUint32(offset, first.sampleRate, true);
-  offset += 4;
-  view.setUint32(offset, first.sampleRate * first.blockAlign, true);
-  offset += 4;
-  view.setUint16(offset, first.blockAlign, true);
-  offset += 2;
-  view.setUint16(offset, first.bitsPerSample, true);
-  offset += 2;
-  writeAscii(view, offset, "data");
-  offset += 4;
-  view.setUint32(offset, dataSize, true);
-  offset += 4;
+  const output = writeWavHeader(first, dataSize);
+  let offset = 44;
 
   for (const { bytes, info } of parsed) {
     output.set(
@@ -162,4 +176,121 @@ export const concatenateWavFiles = (
   }
 
   return output;
+};
+
+export const trimSilenceFromWav = (
+  bytes: Uint8Array<ArrayBuffer>,
+  {
+    threshold = 320,
+    paddingMs = 80,
+  }: {
+    threshold?: number;
+    paddingMs?: number;
+  } = {},
+): TrimmedWav => {
+  const info = readWavInfo(bytes);
+
+  if (info.bitsPerSample !== 16) {
+    return {
+      bytes,
+      durationMs: info.durationMs,
+      trimStartMs: 0,
+      trimEndMs: 0,
+      trimmed: false,
+    };
+  }
+
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const frameCount = Math.floor(info.dataSize / info.blockAlign);
+  const padFrames = Math.round((paddingMs / 1000) * info.sampleRate);
+
+  const isFrameSilent = (frameIndex: number) => {
+    const frameOffset = info.dataOffset + frameIndex * info.blockAlign;
+
+    for (let channelIndex = 0; channelIndex < info.channelCount; channelIndex += 1) {
+      const sampleOffset = frameOffset + channelIndex * 2;
+      const sample = view.getInt16(sampleOffset, true);
+
+      if (Math.abs(sample) > threshold) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  let startFrame = 0;
+  while (startFrame < frameCount && isFrameSilent(startFrame)) {
+    startFrame += 1;
+  }
+
+  if (startFrame >= frameCount) {
+    return {
+      bytes,
+      durationMs: info.durationMs,
+      trimStartMs: 0,
+      trimEndMs: 0,
+      trimmed: false,
+    };
+  }
+
+  let endFrame = frameCount - 1;
+  while (endFrame >= startFrame && isFrameSilent(endFrame)) {
+    endFrame -= 1;
+  }
+
+  const trimmedStartFrame = Math.max(0, startFrame - padFrames);
+  const trimmedEndFrame = Math.min(frameCount, endFrame + 1 + padFrames);
+
+  if (trimmedStartFrame === 0 && trimmedEndFrame === frameCount) {
+    return {
+      bytes,
+      durationMs: info.durationMs,
+      trimStartMs: 0,
+      trimEndMs: 0,
+      trimmed: false,
+    };
+  }
+
+  const dataOffset = info.dataOffset + trimmedStartFrame * info.blockAlign;
+  const dataSize = (trimmedEndFrame - trimmedStartFrame) * info.blockAlign;
+  const output = writeWavHeader(info, dataSize);
+  output.set(bytes.slice(dataOffset, dataOffset + dataSize), 44);
+
+  const trimStartMs = Math.round((trimmedStartFrame / info.sampleRate) * 1000);
+  const trimEndMs = Math.round(((frameCount - trimmedEndFrame) / info.sampleRate) * 1000);
+
+  return {
+    bytes: output,
+    durationMs: Math.round((dataSize / info.blockAlign / info.sampleRate) * 1000),
+    trimStartMs,
+    trimEndMs,
+    trimmed: true,
+  };
+};
+
+export const clipWavToDuration = (
+  bytes: Uint8Array<ArrayBuffer>,
+  maxDurationMs: number,
+) => {
+  const info = readWavInfo(bytes);
+
+  if (info.durationMs <= maxDurationMs) {
+    return {
+      bytes,
+      durationMs: info.durationMs,
+      clipped: false,
+    };
+  }
+
+  const frameCount = Math.max(1, Math.round((maxDurationMs / 1000) * info.sampleRate));
+  const dataSize = Math.min(info.dataSize, frameCount * info.blockAlign);
+  const output = writeWavHeader(info, dataSize);
+  output.set(bytes.slice(info.dataOffset, info.dataOffset + dataSize), 44);
+
+  return {
+    bytes: output,
+    durationMs: Math.round((dataSize / info.blockAlign / info.sampleRate) * 1000),
+    clipped: true,
+  };
 };

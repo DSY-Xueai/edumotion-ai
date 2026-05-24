@@ -4,6 +4,7 @@ import { handleDoctor } from "./commands/doctor";
 import { handleDraftGenerate } from "./commands/draft";
 import { handlePipelineAction } from "./commands/pipeline";
 import { handleProviderAction } from "./commands/provider";
+import { handleQualityAction } from "./commands/quality";
 import { handleProduceRender } from "./commands/produce";
 import { handleResearchRun } from "./commands/research";
 import { handleReviewAction } from "./commands/review";
@@ -27,6 +28,8 @@ const main = async () => {
     await handlePipelineAction(action, rest);
   } else if (domain === "provider") {
     await handleProviderAction(action, rest);
+  } else if (domain === "quality") {
+    await handleQualityAction(action, rest);
   } else if (domain === "batch") {
     await handleBatchAction(action, rest);
   } else if (domain === "doctor") {

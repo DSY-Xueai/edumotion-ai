@@ -1,5 +1,6 @@
 import { loadCurriculum } from "../curriculum/loadCurriculum";
 import { readEnglishWordbank } from "../curriculum/englishWordbank";
+import { resolveEnglishPhonetic } from "../curriculum/englishPhonetics";
 import { topicResearchSchema, type TopicResearchPayload } from "../research/schema";
 import type { ResearchProvider } from "../research/researchProvider";
 import { readProviderConfig } from "./config";
@@ -110,12 +111,16 @@ const buildEnglishResearchFromWordbank = async (topicId: string) => {
       retrievedAt: wordbank.generatedAt.slice(0, 10),
       quoteOrSummary: `${entry.word} 的原始词表来源。`,
     }));
+  const phonetic = resolveEnglishPhonetic({
+    word: entry.word,
+    sourcePhonetic: entry.phonetic,
+  });
 
   return {
     canonicalTitle: entry.word,
-    phonetic: entry.phonetic,
+    phonetic,
     definitions: entry.meaningLines,
-    formulas: entry.phonetic ? [entry.phonetic] : [],
+    formulas: phonetic ? [phonetic] : [],
     principles: [
       entry.partOfSpeech,
       `来源：${entry.sourceLevels.join(" + ")}`,

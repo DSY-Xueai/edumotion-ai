@@ -83,6 +83,20 @@ describe("mock providers", () => {
     expect(result.visualizationHints.join(" ")).toContain("抛物线");
   });
 
+  it("fills missing English wordbank phonetics for vocabulary videos", async () => {
+    useMockProviders();
+    const provider = await createResearchProvider();
+
+    const result = await provider.researchTopic({
+      topicId: "english-word-00004",
+      promptContext: "abbreviation",
+    });
+
+    expect(result.canonicalTitle).toBe("abbreviation");
+    expect(result.phonetic).toBe("/əˌbriːviˈeɪʃən/");
+    expect(result.formulas).toContain("/əˌbriːviˈeɪʃən/");
+  });
+
   it("builds a chemistry draft with compare and process scenes", async () => {
     useMockProviders();
     const provider = createDraftProvider();

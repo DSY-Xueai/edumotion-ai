@@ -158,7 +158,6 @@ const AdaptiveScene = ({
       ? englishSceneLabelMap[scene.kind] ?? scene.kind
       : sceneLabelMap[scene.kind] ?? scene.kind;
   const isEnglish = renderPackage.subject === "english";
-
   return (
     <AbsoluteFill
       data-motion-lab-subject={renderPackage.subject}

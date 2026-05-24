@@ -12,6 +12,20 @@ import { requestStructuredOpenAIOutput } from "./openaiStructuredOutput";
 const firstResearchText = (values: string[], fallback: string) =>
   values.find((value) => value.trim().length > 0) ?? fallback;
 
+const hashSeed = (value: string) => {
+  let hash = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = Math.imul(31, hash) + value.charCodeAt(index);
+    hash >>>= 0;
+  }
+
+  return hash;
+};
+
+const pickVariant = <T,>(seed: string, variants: T[]) =>
+  variants[hashSeed(seed) % variants.length] ?? variants[0];
+
 const visualPlanFromResearch = (research: TopicResearch, fallback: string[]) => {
   const hints = research.visualizationHints
     .map((value) => value.trim())
@@ -246,66 +260,163 @@ const buildEnglishDraft = ({
     "郁闷的、闷闷不乐的",
   );
   const meaningTail = meaning.replace(/[。.!！?？；;]+$/u, "");
+  const compactMeaning =
+    meaningTail
+      .split(/[；;，,、]/u)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("、") || meaningTail;
 
   const buildMemoryScript = () => {
+    const seed = `${topicId}:${word}:${meaningTail}`;
+
     if (/(郁闷|闷闷不乐|不开心|沮丧)/u.test(meaningTail)) {
-      return {
-        leadText: "你暗恋的人过生日，别人都送花，",
-        storyText: "只有你——手里空空的，",
-        echoText: "没人送我玫瑰，",
-        wrapStoryText: `${word}，当然郁闷了。`,
-      };
+      return pickVariant(seed, [
+        {
+          leadText: "你暗恋的人过生日，别人都送花，",
+          storyText: "只有你——手里空空的，",
+          echoText: "没人送我玫瑰，",
+          wrapStoryText: `${word}，当然郁闷了。`,
+        },
+        {
+          leadText: "热闹的人群都在笑，",
+          storyText: "你却像站在门外吹风，",
+          echoText: "没人送我玫瑰，",
+          wrapStoryText: `${word}，就是那种闷闷不乐。`,
+        },
+        {
+          leadText: "别人都拿着礼物进门，",
+          storyText: "轮到你时却两手空空，",
+          echoText: "没人送我玫瑰，",
+          wrapStoryText: `${word}，心里自然就沉下去了。`,
+        },
+      ]);
     }
 
     if (/(放弃|丢弃|抛弃|舍弃)/u.test(meaningTail)) {
-      return {
-        leadText: "你背着一堆东西赶路，",
-        storyText: "太重了，干脆先把最沉的那袋放下，",
-        echoText: `${word}，`,
-        wrapStoryText: `所以：先放弃、先丢下。`,
-      };
+      const nounVariants = [
+        {
+          leadText: "一个计划做到一半，负责人决定停掉，",
+          storyText: `这种“${compactMeaning}这件事”，就是 ${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: "原本答应负责的事，却决定丢下不管，",
+          storyText: `这种不再承担的状态，就是${compactMeaning}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+        {
+          leadText: "项目还没完成，却决定停止推进，",
+          storyText: `这个决定本身，就是${compactMeaning}，`,
+          wrapStoryText: `所以：${word}，指的是${compactMeaning}。`,
+        },
+      ];
+      const verbVariants = [
+        {
+          leadText: "原本想继续的计划，最后决定停掉，",
+          storyText: `这个动作就是${compactMeaning}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: "一件东西不再要了，你直接决定丢掉，",
+          storyText: `这个动作就是${compactMeaning}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: "走到一半发现不该继续，就主动停下，",
+          storyText: `这个动作才是${compactMeaning}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+      ];
+
+      return pickVariant(seed, /ment$/i.test(word) ? nounVariants : verbVariants);
     }
 
-    return {
-      leadText: "把这个词放进一个具体场景里，",
-      storyText: "动作一出来，意思就跟着出来了，",
-      echoText: `${word}，`,
-      wrapStoryText: `所以：${meaningTail}。`,
-    };
+    if (/(缩写|缩短|节略|省略)/u.test(meaningTail)) {
+      return pickVariant(seed, [
+        {
+          leadText: "一个完整名字太长，先省掉一部分，",
+          storyText: `缩成更短的写法，就是${compactMeaning}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: "长词写起来太费劲，就保留关键字母，",
+          storyText: `把它缩短后的形式，就是${compactMeaning}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+        {
+          leadText: "全称太长，写的时候压缩成短形式，",
+          storyText: `这个短形式，就是${compactMeaning}，`,
+          wrapStoryText: `所以：${word}，指的是${compactMeaning}。`,
+        },
+      ]);
+    }
+
+    if (/(忍受|容忍|遵守|遵从|服从)/u.test(meaningTail)) {
+      return pickVariant(seed, [
+        {
+          leadText: "遇到不舒服的规则，",
+          storyText: `先忍住照做，就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: "明明有点难受，",
+          storyText: `还守住规矩，就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，抓住${compactMeaning}。`,
+        },
+        {
+          leadText: "规则不一定轻松，",
+          storyText: `忍着照做，就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，意思是${compactMeaning}。`,
+        },
+      ]);
+    }
+
+    return pickVariant(seed, [
+      {
+        leadText: `先抓中文义项：${compactMeaning}，`,
+        storyText: `画面只服务：${compactMeaning}，`,
+        echoText: `${word}，`,
+        wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+      },
+      {
+        leadText: `${word} 不靠空想，`,
+        storyText: `直接对上：${compactMeaning}，`,
+        echoText: `${word}，`,
+        wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+      },
+      {
+        leadText: `这一轮只记 ${word} 的核心意思，`,
+        storyText: `马上想到：${compactMeaning}，`,
+        echoText: `${word}，`,
+        wrapStoryText: `所以：${word}，核心是${compactMeaning}。`,
+      },
+    ]);
   };
 
   const memory = buildMemoryScript();
   const hookText = "一秒钟记一个单词。";
   const definitionText = `今天要记的单词是 ${word}，意思是：${meaningTail}。`;
-  const processText = "怎么记？";
   const pronunciationText = word;
   const wrapText = memory.wrapStoryText;
-  const recapText = `${word}，${meaningTail}。`;
   const scriptSegments = [
     { id: `${topicId}-seg-hook`, kind: "hook", text: hookText },
     { id: `${topicId}-seg-definition`, kind: "definition", text: definitionText },
-    { id: `${topicId}-seg-process`, kind: "process", text: processText },
     { id: `${topicId}-seg-compare-lead`, kind: "compare", text: memory.leadText },
     { id: `${topicId}-seg-pitfall`, kind: "pitfall", text: memory.storyText },
-    { id: `${topicId}-seg-memory`, kind: "compare", text: memory.echoText },
     { id: `${topicId}-seg-pronunciation`, kind: "pronunciation", text: pronunciationText },
     { id: `${topicId}-seg-wrap`, kind: "wrap", text: wrapText },
-    { id: `${topicId}-seg-recap`, kind: "wrap", text: recapText },
   ];
   const storyboardScenes: LessonDraftPayload["storyboardScenes"] = [
     {
       id: `${topicId}-scene-definition`,
       type: "definition",
       segmentIds: scriptSegments.map((segment) => segment.id),
-      durationSec:
-        sceneBudgets.hook +
-        sceneBudgets.definition +
-        sceneBudgets.rule +
-        sceneBudgets.compare +
-        sceneBudgets.process +
-        sceneBudgets.graph +
-        sceneBudgets.pitfall +
-        sceneBudgets.wrap,
+      durationSec: 20,
     },
   ];
 
@@ -321,7 +432,7 @@ const buildEnglishDraft = ({
       "单词必须足够大",
       "先出发音再出释义",
       "联想故事只保留一条主线",
-      "最后整词回看",
+      "最后用解释句收束",
     ]),
     qaNotes: [],
   };
@@ -419,7 +530,7 @@ export const createDraftProvider = (): DraftProvider => {
           schema: draftPayloadSchema,
           systemPrompt:
             topicId.startsWith("english-")
-              ? "You are a senior Chinese English vocabulary short-video lesson designer. Return only structured JSON for a one-word-one-video lesson draft that matches a layered vocabulary card style, with a short Chinese cadence: 一秒记一个单词。今天要记的单词是 X，意思是...。Keep the whole video visually static on one centered word card, use only one storyboard scene, do not surface phonetic in the narration, do not add extra instructional labels, and keep the pronunciation beat as a standalone segment using the English word itself. The rest should follow the reference style with a fresh mnemonic story tailored to the word meaning, not a repeated fixed anecdote."
+              ? "You are a senior Chinese English vocabulary short-video lesson designer. Return only structured JSON for a one-word-one-video lesson draft that matches a layered vocabulary card style, with a short Chinese cadence: 一秒记一个单词。今天要记的单词是 X，意思是...。Keep the whole video visually static on one centered word card, use only one storyboard scene, do not surface phonetic in the narration, do not add extra instructional labels, and keep the pronunciation beat as a standalone segment using the English word itself. The rest should follow the reference style with a fresh mnemonic story whose action or state logically proves the word meaning, not a repeated fixed anecdote."
               : "You are a senior Chinese high-school STEM short-video lesson designer. Return only structured JSON for a 60-90 second educational lesson draft.",
           userPrompt:
             topicId.startsWith("english-")
@@ -443,6 +554,8 @@ export const createDraftProvider = (): DraftProvider => {
                   "Do not include instructional labels like 巧记、词性提示 or other on-screen explanations in the visual plan.",
                   "The pronunciation beat must be a standalone English segment using the English word itself.",
                   "Use Chinese segments for the memory hook, contrast, and recap, and build the mnemonic as a fresh story derived from the word meaning.",
+                  "The mnemonic scene must logically prove the Chinese meaning: verbs need a clear actor/action, nouns need a clear action/state/result, and adjectives need a concrete trait being shown.",
+                  "Do not use weak object scenes that only say nobody touches something, something sits there, or 不再继续就是... unless the actor, decision, and meaning are explicit.",
                   "Every storyboard scene must reference existing script segment ids.",
                   "Keep the video short and compact.",
                   "Do not write STEM framing.",

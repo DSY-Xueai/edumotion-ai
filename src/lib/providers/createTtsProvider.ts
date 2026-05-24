@@ -1,7 +1,8 @@
 import type { TtsProvider } from "../audio/ttsProvider";
 import { splitNarrationText } from "../audio/splitNarrationText";
-import { concatenateWavFiles, readWavInfo } from "../audio/wav";
+import { clipWavToDuration, concatenateWavFiles, trimSilenceFromWav } from "../audio/wav";
 import type { TtsChunkTiming } from "../audio/schema";
+import { resolveEnglishPhonetic } from "../curriculum/englishPhonetics";
 import { readEnglishWordbank } from "../curriculum/englishWordbank";
 import { readProviderConfig } from "./config";
 import { ensureQwenTtsCloneServer } from "./ensureQwenTtsCloneServer";
@@ -82,23 +83,41 @@ const buildQwenSynthesizedSegment = ({
   text: string;
   audioBytes: Uint8Array<ArrayBuffer>;
 }) => {
-  const durationMs = readWavInfo(audioBytes).durationMs;
+  const trimmed = trimSilenceFromWav(audioBytes);
 
   return {
     audioFile: {
       extension: "wav",
-      data: audioBytes,
+      data: trimmed.bytes,
     },
-    durationMs,
+    durationMs: trimmed.durationMs,
     chunks: [
       {
         text,
         startMs: 0,
-        endMs: durationMs,
+        endMs: trimmed.durationMs,
       },
     ],
   };
 };
+
+const shiftChunks = (
+  chunks: TtsChunkTiming[],
+  trimStartMs: number,
+  durationMs: number,
+) =>
+  chunks
+    .map((chunk) => {
+      const startMs = Math.max(0, chunk.startMs - trimStartMs);
+      const endMs = Math.min(durationMs, Math.max(startMs, chunk.endMs - trimStartMs));
+
+      return {
+        ...chunk,
+        startMs,
+        endMs,
+      };
+    })
+    .filter((chunk) => chunk.endMs > chunk.startMs);
 
 const qwenGenerationOptions = (config: ReturnType<typeof readProviderConfig>) => ({
   seed: config.QWEN_TTS_SEED,
@@ -117,6 +136,32 @@ const mockSceneDurationMs: Record<string, number> = {
   graph: 10000,
   pitfall: 8000,
   wrap: 8000,
+};
+
+const englishMockSceneDurationMs: Record<string, number> = {
+  pronunciation: 1200,
+  hook: 1600,
+  definition: 3600,
+  process: 1200,
+  compare: 2600,
+  pitfall: 2400,
+  wrap: 2600,
+};
+
+const getMockDurationMs = ({
+  topicId,
+  kind,
+  text,
+}: {
+  topicId: string;
+  kind: string;
+  text: string;
+}) => {
+  if (topicId.startsWith("english-")) {
+    return englishMockSceneDurationMs[kind] ?? Math.max(1200, text.length * 95);
+  }
+
+  return mockSceneDurationMs[kind] ?? Math.max(2000, text.length * 120);
 };
 
 const createMockWavBytes = (durationMs: number) => {
@@ -185,6 +230,8 @@ const isEnglishPronunciationSegment = (topicId: string, segment: { kind: string 
 
 const pronunciationInstruction =
   "Pronounce the single English word naturally and clearly using standard English pronunciation, and do not use Chinese reading rules.";
+const maxEnglishPronunciationDurationMs = 2500;
+const maxEnglishSegmentDurationMs = 5500;
 
 let englishWordbankCache: ReturnType<typeof readEnglishWordbank> | null = null;
 
@@ -194,13 +241,55 @@ const getEnglishWordbank = () =>
 const buildPronunciationInstruction = async (topicId: string, word: string) => {
   const wordbank = await getEnglishWordbank();
   const entry = wordbank.entries.find((item) => item.id === topicId);
-  const phonetic = entry?.phonetic.trim();
+  const phonetic = resolveEnglishPhonetic({
+    word,
+    sourcePhonetic: entry?.phonetic,
+  });
 
   if (phonetic) {
     return `Pronounce the single English word ${word} as ${phonetic}. Speak only the word once in a clean studio voice. Use standard English pronunciation only, and do not use Chinese reading rules, filler, echo, humming, or extra commentary.`;
   }
 
   return `${pronunciationInstruction} Speak only the word once in a clean studio voice. The word is ${word}.`;
+};
+
+const capEnglishVideoSegment = <T extends {
+  audioFile: { extension: string; data: Uint8Array<ArrayBuffer> };
+  durationMs: number;
+  chunks: TtsChunkTiming[];
+}>(
+  result: T,
+  segment: { kind: string; text: string },
+): T => {
+  const maxDurationMs =
+    segment.kind === "pronunciation"
+      ? maxEnglishPronunciationDurationMs
+      : maxEnglishSegmentDurationMs;
+
+  if (
+    result.audioFile.extension !== "wav" ||
+    result.durationMs <= maxDurationMs
+  ) {
+    return result;
+  }
+
+  const clipped = clipWavToDuration(result.audioFile.data, maxDurationMs);
+
+  return {
+    ...result,
+    audioFile: {
+      ...result.audioFile,
+      data: clipped.bytes,
+    },
+    durationMs: clipped.durationMs,
+    chunks: [
+      {
+        text: segment.text,
+        startMs: 0,
+        endMs: clipped.durationMs,
+      },
+    ],
+  };
 };
 
 const synthesizeOpenAISpeechSegment = async ({
@@ -264,14 +353,19 @@ const synthesizeOpenAISpeechSegment = async ({
   const transcription = (await transcriptionResponse.json()) as Record<string, unknown>;
   const durationMs =
     parseDurationMs(transcription.duration) ?? Math.max(900, text.length * 55);
+  const trimmed = trimSilenceFromWav(audioBytes);
 
   return {
     audioFile: {
       extension: config.TTS_RESPONSE_FORMAT,
-      data: audioBytes,
+      data: trimmed.bytes,
     },
-    durationMs,
-    chunks: parseChunkTimings(transcription, text, durationMs),
+    durationMs: trimmed.durationMs,
+    chunks: shiftChunks(
+      parseChunkTimings(transcription, text, durationMs),
+      trimmed.trimStartMs,
+      trimmed.durationMs,
+    ),
   };
 };
 
@@ -318,10 +412,11 @@ const synthesizeQwenLocalSegment = async ({
     }
 
     const audioBytes: Uint8Array<ArrayBuffer> = new Uint8Array(await response.arrayBuffer());
-    const durationMs = readWavInfo(audioBytes).durationMs;
+    const trimmed = trimSilenceFromWav(audioBytes);
+    const durationMs = trimmed.durationMs;
     const endMs = currentStartMs + durationMs;
 
-    audioFiles.push(audioBytes);
+    audioFiles.push(trimmed.bytes);
     chunks.push({
       text: textPart,
       startMs: currentStartMs,
@@ -356,14 +451,20 @@ export const createTtsProvider = (): TtsProvider => {
             segments.map((segment) =>
               (isEnglishPronunciationSegment(topicId, segment)
                 ? config.OPENAI_API_KEY
-                  ? synthesizeOpenAISpeechSegment({ config, text: segment.text })
+                  ? synthesizeOpenAISpeechSegment({ config, text: segment.text }).then((result) =>
+                      capEnglishVideoSegment(result, segment),
+                    )
                   : synthesizeQwenLocalSegment({
                       config,
                       segment,
                       language: "English",
                       instruct: pronunciationInstruction,
-                    })
-                : synthesizeQwenLocalSegment({ config, segment })),
+                    }).then((result) => capEnglishVideoSegment(result, segment))
+                : synthesizeQwenLocalSegment({ config, segment }).then((result) =>
+                    topicId.startsWith("english-")
+                      ? capEnglishVideoSegment(result, segment)
+                      : result,
+                  )),
             ),
           );
         }
@@ -417,23 +518,31 @@ export const createTtsProvider = (): TtsProvider => {
       synthesizeSegment: async ({ topicId, segment }) => {
         await ensureQwenReady();
         if (isEnglishPronunciationSegment(topicId, segment) && config.OPENAI_API_KEY) {
-          return synthesizeOpenAISpeechSegment({
+          const result = await synthesizeOpenAISpeechSegment({
             config,
             text: segment.text,
           });
+
+          return capEnglishVideoSegment(result, segment);
         }
 
         if (isEnglishPronunciationSegment(topicId, segment)) {
           const instruct = await buildPronunciationInstruction(topicId, segment.text);
-          return synthesizeQwenLocalSegment({
+          const result = await synthesizeQwenLocalSegment({
             config,
             segment,
             language: "English",
             instruct,
           });
+
+          return capEnglishVideoSegment(result, segment);
         }
 
-        return synthesizeQwenLocalSegment({ config, segment });
+        const result = await synthesizeQwenLocalSegment({ config, segment });
+
+        return topicId.startsWith("english-")
+          ? capEnglishVideoSegment(result, segment)
+          : result;
       },
     };
   }
@@ -516,10 +625,12 @@ export const createTtsProvider = (): TtsProvider => {
   }
 
   return {
-    synthesizeSegment: async ({ segment }) => {
-      const durationMs =
-        mockSceneDurationMs[segment.kind] ??
-        Math.max(2000, segment.text.length * 120);
+    synthesizeSegment: async ({ topicId, segment }) => {
+      const durationMs = getMockDurationMs({
+        topicId,
+        kind: segment.kind,
+        text: segment.text,
+      });
 
       return {
         audioFile: {
