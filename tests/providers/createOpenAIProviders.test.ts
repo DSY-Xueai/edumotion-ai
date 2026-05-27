@@ -177,6 +177,136 @@ describe("openai structured providers", () => {
     expect(result.storyboardScenes[0]?.type).toBe("hook");
   });
 
+  it("retries weak english mnemonic drafts with quality feedback", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("PIPELINE_PROVIDER_MODE", "openai");
+    vi.stubEnv("DRAFT_MODEL", "gpt-5");
+
+    const weakDraft = {
+      toneProfile: "english-vocabulary-card",
+      durationTargetSec: 20,
+      hook: "一秒钟记一个单词。",
+      summary: "aboard 的单词记忆卡",
+      scriptSegments: [
+        {
+          id: "english-word-00010-seg-hook",
+          kind: "hook",
+          text: "一秒钟记一个单词。",
+        },
+        {
+          id: "english-word-00010-seg-definition",
+          kind: "definition",
+          text: "今天要记的单词是 aboard，意思是：在船、飞机、火车或公共汽车上。",
+        },
+        {
+          id: "english-word-00010-seg-compare-lead",
+          kind: "compare",
+          text: "怎么记 在船、飞机？一个清晰的画面闪过眼前，",
+        },
+        {
+          id: "english-word-00010-seg-pitfall",
+          kind: "pitfall",
+          text: "它就对应着在船、飞机，",
+        },
+        {
+          id: "english-word-00010-seg-pronunciation",
+          kind: "pronunciation",
+          text: "aboard",
+        },
+        {
+          id: "english-word-00010-seg-wrap",
+          kind: "wrap",
+          text: "所以：aboard，就是在船、飞机。",
+        },
+      ],
+      storyboardScenes: [
+        {
+          id: "english-word-00010-scene-definition",
+          type: "definition",
+          segmentIds: [
+            "english-word-00010-seg-hook",
+            "english-word-00010-seg-definition",
+            "english-word-00010-seg-compare-lead",
+            "english-word-00010-seg-pitfall",
+            "english-word-00010-seg-pronunciation",
+            "english-word-00010-seg-wrap",
+          ],
+          durationSec: 20,
+        },
+      ],
+      subtitleDraft: [],
+      visualPlan: ["单词卡"],
+      qaNotes: [],
+    };
+    const groundedDraft = {
+      ...weakDraft,
+      scriptSegments: [
+        weakDraft.scriptSegments[0],
+        weakDraft.scriptSegments[1],
+        {
+          id: "english-word-00010-seg-compare-lead",
+          kind: "compare",
+          text: "怎么记 在船、飞机？登机口通知大家上飞机，你已经走进客舱、坐在座位上，",
+        },
+        {
+          id: "english-word-00010-seg-pitfall",
+          kind: "pitfall",
+          text: "人已经在飞机里面，这个位置状态就是在船、飞机，",
+        },
+        weakDraft.scriptSegments[4],
+        weakDraft.scriptSegments[5],
+      ],
+    };
+
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: JSON.stringify(weakDraft) } }],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: JSON.stringify(groundedDraft) } }],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = createDraftProvider();
+    const result = await provider.createDraft({
+      topicId: "english-word-00010",
+      research: {
+        topicId: "english-word-00010",
+        scope: "topic",
+        canonicalTitle: "aboard",
+        definitions: ["在船、飞机、火车或公共汽车上"],
+        formulas: ["/əˈbɔrd/"],
+        principles: ["adv.", "来源：CET4 + CET6"],
+        examples: [],
+        misconceptions: [],
+        prerequisites: [],
+        nextConnections: [],
+        visualizationHints: [],
+        sources: [],
+      },
+      sceneBudgets: defaultSceneBudgets,
+      promptContext: "aboard",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const secondRequest = JSON.parse(fetchMock.mock.calls[1]?.[1]?.body as string);
+    expect(secondRequest.messages[1].content).toContain("Previous draft failed quality checks");
+    expect(result.scriptSegments[2]?.text).toContain("客舱");
+    expect(result.scriptSegments[3]?.text).toContain("位置状态");
+  });
+
   it("supports a custom OpenAI-compatible base URL", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("PIPELINE_PROVIDER_MODE", "openai");

@@ -5,6 +5,7 @@ import {
   storyboardSceneTypeSchema,
   type LessonDraftPayload,
 } from "../draft/schema";
+import { checkEnglishDraftQuality } from "../draft/checkEnglishDraftQuality";
 import type { TopicResearch } from "../research/schema";
 import { readProviderConfig } from "./config";
 import { requestStructuredOpenAIOutput } from "./openaiStructuredOutput";
@@ -713,100 +714,9 @@ const buildEnglishDraft = ({
       ]);
     }
 
-    const posDetect = research.principles.join(" ").toLowerCase();
-    const isVerb = /^v\b|^verb\b/.test(posDetect);
-    const isNoun = /^n\b|^noun\b/.test(posDetect);
-
-    if (isVerb) {
-      return pickVariant(seed, [
-        {
-          leadText: `怎么记 ${compactMeaning}？你亲眼看到一个人正在做一件事，`,
-          storyText: `那个动作就是${compactMeaning}，`,
-          echoText: `${word}，`,
-          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
-        },
-        {
-          leadText: `${compactMeaning} 的画面：别人讲给你听，不如亲眼看他做一遍：`,
-          storyText: `这个行为就是${compactMeaning}，`,
-          echoText: `${word}，`,
-          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
-        },
-        {
-          leadText: `记 ${compactMeaning}，就想象一个动作在你眼前发生，`,
-          storyText: `那个动作就是${compactMeaning}，`,
-          echoText: `${word}，`,
-          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
-        },
-        {
-          leadText: `什么是 ${compactMeaning}？你盯着看一个人做一件事，`,
-          storyText: `你看到的正是${compactMeaning}，`,
-          echoText: `${word}，`,
-          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
-        },
-      ]);
-    }
-
-    if (isNoun) {
-      return pickVariant(seed, [
-        {
-          leadText: `怎么记 ${compactMeaning}？一个东西放在你面前，你一眼就认出来了，`,
-          storyText: `它就是${compactMeaning}，`,
-          echoText: `${word}，`,
-          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
-        },
-        {
-          leadText: `${compactMeaning} 的画面：不用翻解释，看到它的样子你就明白了，`,
-          storyText: `这就是${compactMeaning}，`,
-          echoText: `${word}，`,
-          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
-        },
-        {
-          leadText: `说起 ${compactMeaning}，就是一个你能指得出来的东西，`,
-          storyText: `它就是${compactMeaning}，`,
-          echoText: `${word}，`,
-          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
-        },
-        {
-          leadText: `${compactMeaning} 怎么记？把它想成一个具体的存在，`,
-          storyText: `它就是${compactMeaning}，`,
-          echoText: `${word}，`,
-          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
-        },
-      ]);
-    }
-
-    return pickVariant(seed, [
-      {
-        leadText: `怎么记 ${compactMeaning}？一个清晰的画面闪过眼前，`,
-        storyText: `它就对应着${compactMeaning}，`,
-        echoText: `${word}，`,
-        wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
-      },
-      {
-        leadText: `${compactMeaning} 的画面：你亲眼看到一件事发生，`,
-        storyText: `那个瞬间就是${compactMeaning}，`,
-        echoText: `${word}，`,
-        wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
-      },
-      {
-        leadText: `说到 ${compactMeaning}，脑子里立刻有一个场景，`,
-        storyText: `它只指向一件事：${compactMeaning}，`,
-        echoText: `${word}，`,
-        wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
-      },
-      {
-        leadText: `记 ${compactMeaning} 最好的办法，就是把它放进一个画面，`,
-        storyText: `画面里只有一件事：${compactMeaning}，`,
-        echoText: `${word}，`,
-        wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
-      },
-      {
-        leadText: `${compactMeaning} 这个词，把它和一个画面焊在一起，`,
-        storyText: `那个画面就是${compactMeaning}，`,
-        echoText: `${word}，`,
-        wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
-      },
-    ]);
+    throw new Error(
+      `Mock English draft provider cannot create a grounded mnemonic for ${word}. Use PIPELINE_PROVIDER_MODE=openai for production English vocabulary drafts.`,
+    );
   };
 
   const memory = buildMemoryScript();
@@ -933,79 +843,106 @@ export const createDraftProvider = (): DraftProvider => {
   if (config.PIPELINE_PROVIDER_MODE === "openai") {
     return {
       createDraft: async ({ topicId, research, sceneBudgets, promptContext }) => {
-        const structured = await requestStructuredOpenAIOutput<LessonDraftPayload>({
-          apiKey: config.OPENAI_API_KEY ?? "",
-          baseUrl: config.OPENAI_BASE_URL,
-          model: config.DRAFT_MODEL,
-          schemaName: "lesson_draft_payload",
-          schema: draftPayloadSchema,
-          systemPrompt:
-            topicId.startsWith("english-")
+        const isEnglishTopic = topicId.startsWith("english-");
+        const buildUserPrompt = (qualityIssues: string[]) =>
+          isEnglishTopic
+            ? [
+                `Topic ID: ${topicId}`,
+                `Subject: english`,
+                `Prompt context: ${promptContext}`,
+                `Word: ${research.canonicalTitle}`,
+                `Phonetic: ${research.phonetic || research.formulas.join(" | ")}`,
+                `Meanings: ${research.definitions.join(" | ")}`,
+                `Part of speech / hints: ${research.principles.join(" | ")}`,
+                `Mnemonic examples: ${research.examples.join(" | ")}`,
+                `Misconceptions: ${research.misconceptions.join(" | ")}`,
+                `Visualization hints: ${research.visualizationHints.join(" | ")}`,
+                `Scene budgets: ${JSON.stringify(sceneBudgets)}`,
+                "Return Chinese content only.",
+                "Use a layered vocabulary-card style similar to a short-form word memo video.",
+                "Follow the cadence: 一秒记一个单词。今天要记的单词是 X，意思是：...。怎么记？...",
+                "Keep the entire video on one storyboard scene and one centered visual focus.",
+                "Do not mention phonetic in the narration.",
+                "Do not include instructional labels like 巧记、词性提示 or other on-screen explanations in the visual plan.",
+                "The pronunciation beat must be a standalone English segment using the English word itself.",
+                "Use Chinese segments for the memory hook, contrast, and recap, and build the mnemonic as a fresh story derived from the word meaning.",
+                "The mnemonic scene must logically prove the Chinese meaning: verbs need a clear actor/action, nouns need a clear action/state/result, adjectives and adverbs need a concrete visible state, position, manner, or result.",
+                "Do not use weak object scenes that only say nobody touches something, something sits there, or 不再继续就是... unless the actor, decision, and meaning are explicit.",
+                "Do not use generic picture wording such as 清晰的画面、对应着、脑子里有一个场景、放进一个画面、画面里只有一件事、和一个画面焊在一起.",
+                qualityIssues.length > 0
+                  ? `Previous draft failed quality checks. Rewrite the mnemonic to fix these issues: ${qualityIssues.join(" | ")}`
+                  : "",
+                "Every storyboard scene must reference existing script segment ids.",
+                "Keep the video short and compact.",
+                "Do not write STEM framing.",
+              ]
+                .filter(Boolean)
+                .join("\n")
+            : [
+                `Topic ID: ${topicId}`,
+                `Subject: ${topicId.split("-")[0]}`,
+                `Prompt context: ${promptContext}`,
+                `Canonical title: ${research.canonicalTitle}`,
+                `Definitions: ${research.definitions.join(" | ")}`,
+                `Formulas: ${research.formulas.join(" | ")}`,
+                `Principles: ${research.principles.join(" | ")}`,
+                `Examples: ${research.examples.join(" | ")}`,
+                `Misconceptions: ${research.misconceptions.join(" | ")}`,
+                `Visualization hints: ${research.visualizationHints.join(" | ")}`,
+                `Scene budgets: ${JSON.stringify(sceneBudgets)}`,
+                "Return Chinese content.",
+                "Use concise but teachable narration.",
+                "Every storyboard scene must reference existing script segment ids.",
+                "Choose scene types that fit the subject instead of forcing all scene kinds.",
+                "Duration target should stay in the 60-90 second range.",
+              ].join("\n");
+
+        let qualityIssues: string[] = [];
+
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          const structured = await requestStructuredOpenAIOutput<LessonDraftPayload>({
+            apiKey: config.OPENAI_API_KEY ?? "",
+            baseUrl: config.OPENAI_BASE_URL,
+            model: config.DRAFT_MODEL,
+            schemaName: "lesson_draft_payload",
+            schema: draftPayloadSchema,
+            systemPrompt: isEnglishTopic
               ? "You are a senior Chinese English vocabulary short-video lesson designer. Return only structured JSON for a one-word-one-video lesson draft that matches a layered vocabulary card style, with a short Chinese cadence: 一秒记一个单词。今天要记的单词是 X，意思是...。Keep the whole video visually static on one centered word card, use only one storyboard scene, do not surface phonetic in the narration, do not add extra instructional labels, and keep the pronunciation beat as a standalone segment using the English word itself. The rest should follow the reference style with a fresh mnemonic story whose action or state logically proves the word meaning, not a repeated fixed anecdote."
               : "You are a senior Chinese high-school STEM short-video lesson designer. Return only structured JSON for a 60-90 second educational lesson draft.",
-          userPrompt:
-            topicId.startsWith("english-")
-              ? [
-                  `Topic ID: ${topicId}`,
-                  `Subject: english`,
-                  `Prompt context: ${promptContext}`,
-                  `Word: ${research.canonicalTitle}`,
-                  `Phonetic: ${research.phonetic || research.formulas.join(" | ")}`,
-                  `Meanings: ${research.definitions.join(" | ")}`,
-                  `Part of speech / hints: ${research.principles.join(" | ")}`,
-                  `Mnemonic examples: ${research.examples.join(" | ")}`,
-                  `Misconceptions: ${research.misconceptions.join(" | ")}`,
-                  `Visualization hints: ${research.visualizationHints.join(" | ")}`,
-                  `Scene budgets: ${JSON.stringify(sceneBudgets)}`,
-                  "Return Chinese content only.",
-                  "Use a layered vocabulary-card style similar to a short-form word memo video.",
-                  "Follow the cadence: 一秒记一个单词。今天要记的单词是 X，意思是：...。怎么记？...",
-                  "Keep the entire video on one storyboard scene and one centered visual focus.",
-                  "Do not mention phonetic in the narration.",
-                  "Do not include instructional labels like 巧记、词性提示 or other on-screen explanations in the visual plan.",
-                  "The pronunciation beat must be a standalone English segment using the English word itself.",
-                  "Use Chinese segments for the memory hook, contrast, and recap, and build the mnemonic as a fresh story derived from the word meaning.",
-                  "The mnemonic scene must logically prove the Chinese meaning: verbs need a clear actor/action, nouns need a clear action/state/result, and adjectives need a concrete trait being shown.",
-                  "Do not use weak object scenes that only say nobody touches something, something sits there, or 不再继续就是... unless the actor, decision, and meaning are explicit.",
-                  "Every storyboard scene must reference existing script segment ids.",
-                  "Keep the video short and compact.",
-                  "Do not write STEM framing.",
-                ].join("\n")
-              : [
-                  `Topic ID: ${topicId}`,
-                  `Subject: ${topicId.split("-")[0]}`,
-                  `Prompt context: ${promptContext}`,
-                  `Canonical title: ${research.canonicalTitle}`,
-                  `Definitions: ${research.definitions.join(" | ")}`,
-                  `Formulas: ${research.formulas.join(" | ")}`,
-                  `Principles: ${research.principles.join(" | ")}`,
-                  `Examples: ${research.examples.join(" | ")}`,
-                  `Misconceptions: ${research.misconceptions.join(" | ")}`,
-                  `Visualization hints: ${research.visualizationHints.join(" | ")}`,
-                  `Scene budgets: ${JSON.stringify(sceneBudgets)}`,
-                  "Return Chinese content.",
-                  "Use concise but teachable narration.",
-                  "Every storyboard scene must reference existing script segment ids.",
-                  "Choose scene types that fit the subject instead of forcing all scene kinds.",
-                  "Duration target should stay in the 60-90 second range.",
-                ].join("\n"),
-        });
-        const parsed = lessonDraftSchema.parse({
-          topicId,
-          ...structured,
-        });
+            userPrompt: buildUserPrompt(qualityIssues),
+          });
+          const parsed = lessonDraftSchema.parse({
+            topicId,
+            ...structured,
+          });
+          const draft = {
+            toneProfile: parsed.toneProfile,
+            durationTargetSec: parsed.durationTargetSec,
+            hook: parsed.hook,
+            summary: parsed.summary,
+            scriptSegments: parsed.scriptSegments,
+            storyboardScenes: parsed.storyboardScenes,
+            subtitleDraft: parsed.subtitleDraft,
+            visualPlan: parsed.visualPlan,
+            qaNotes: parsed.qaNotes,
+          };
 
-        return {
-          toneProfile: parsed.toneProfile,
-          durationTargetSec: parsed.durationTargetSec,
-          hook: parsed.hook,
-          summary: parsed.summary,
-          scriptSegments: parsed.scriptSegments,
-          storyboardScenes: parsed.storyboardScenes,
-          subtitleDraft: parsed.subtitleDraft,
-          visualPlan: parsed.visualPlan,
-          qaNotes: parsed.qaNotes,
-        };
+          if (!isEnglishTopic) {
+            return draft;
+          }
+
+          const quality = checkEnglishDraftQuality({ draft, research });
+
+          if (quality.ok) {
+            return draft;
+          }
+
+          qualityIssues = quality.issues;
+        }
+
+        throw new Error(
+          `OpenAI English draft failed quality checks after 3 attempts: ${qualityIssues.join(" | ")}`,
+        );
       },
     };
   }

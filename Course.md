@@ -1,95 +1,43 @@
-# 当前状态
+# 当前项目状态
 - 主链路已通：`curriculum -> research -> draft -> review -> audio/subtitle -> render -> topic status`
-- 英语学科已接入 CET4/CET6 合并词库，按单词生成稳定 `topicId`
-- 英语视频页面已从深色黑板模板改为明亮多巴胺词卡风：浅色渐变背景、白色纸卡、薄荷/奶油叠层、荧光笔强调、底部浅色字幕条
-- 英语视频当前试验单词登场剪辑：仅在 `definition` 阶段让单词从屏幕外旋转滚入原本词卡位置；优先按 `seg-definition` 字幕 cue 对齐，滚入前单词完全隐藏，落位后不再运动；不改文案、字幕、音频和页面风格
-- 英语草稿生成已加强记忆句语义约束：场景动作必须能直接证明中文义项，避免“没人碰/放在那里/不再继续就是...”这类弱解释
-- 英语研究数据会用 `cmu-pronouncing-dictionary` 补齐词库缺失音标，并转成 IPA；英语质量检查包含 `phonetic`、`word-entrance-cue` 和 `mnemonic-grounding`
-- 英文发音段独立走 TTS，字幕层按音频 cue 对齐显示；用户可审阅视频继续要求真实 TTS，不使用 mock audio
-- `english-word-00001` 已按新页面重新生成并通过英语质量检查；`english-word-00002` 保留此前恢复后的单词课预览；`english-word-00003` 已按新音标补齐、新语义约束文案和当前单词滚入效果重新生成并通过英语质量检查；`english-word-00004` 已作为音标修复测试样片生成并通过英语质量检查；`english-word-00005` 到 `english-word-00009` 已按新流水线生成并通过英语质量检查；`english-word-00010` 到 `english-word-00020` 的旧产物仍处于已删除状态，等待后续批量生成
+- 英语学科接入 CET4/CET6 合并词库，按单词生成稳定 `topicId`，缺失音标会用 CMU Pronouncing Dictionary 补 IPA。
+- 英语视频采用明亮多巴胺词卡风：浅色渐变背景、白色纸卡、薄荷/奶油叠层、荧光笔强调、底部浅色字幕条。
+- 英语页当前有单词登场剪辑：仅 `definition` 阶段按 subtitle cue 让单词从屏幕外旋转滚入原词卡位置。
+- 正式英语文案生产边界已调整：mock provider 只服务开发测试；正式批量文案应使用 `PIPELINE_PROVIDER_MODE=openai`，并在 draft 阶段做轻量质量验收与最多 3 次重试。
+- 已通过新流程或人工审校生成并通过英语质量检查的样片：`english-word-00001`、`english-word-00003` 到 `english-word-00011`。`english-word-00002` 保留此前恢复后的单词课预览；`english-word-00012` 到 `english-word-00020` 等待后续生成。
 
 # 本轮变更
-- 修复字幕/音频对齐策略：`buildSubtitleTrack` 不再对 TTS chunk 按标点二次估算拆分，字幕只使用真实 TTS chunk 边界；`splitNarrationText` 会在送 TTS 前拆分带问号的软断点句和较长句，避免生成超过 6 秒的真实长 cue
-- mock provider `buildEnglishDraft` 扩展语义分类：新增 14 组词义类别，每组 2~5 个场景变体；新增词性感知兜底；所有 leadText 用 `${compactMeaning}`（中文释义）而非 `${word}`（英文原词），避免中英混合文本导致中文 TTS 跳过嵌入的英文词
-- `checkEnglishVideoQuality` 的 `hasGroundedMnemonicCopy` 新增空壳复读拦截：检测"先抓中文义项""不靠空想""这一轮只记.*核心意思""画面只服务""直接对上"等元指令模式，命中直接判定 `mnemonic-grounding` 失败
-- 修复英语视频中英混合 TTS 漏读/弱读问题：`qwen-local` 普通旁白恢复为整句/真实分句中文 TTS，不再把嵌入英文词拆成独立 English 音频；独立发音词段在本地 Qwen fallback 下改用中文模式读英文词，避免 `able` 这类短词在 Qwen English 模式下生成低音量长段；英语视频多段 TTS 仍顺序合成，避免本地 Qwen 服务半挂
-- 修复 Qwen TTS 偶发内部长停顿：新增 `compressInternalSilenceFromWav`，在每个本地 Qwen TTS 分片首尾裁剪后压缩超过约 180ms 的内部低噪声静音，仅保留约 100ms，避免文案中间出现“等一下才继续说”的延迟感；字幕和渲染时间继续使用处理后的真实音频时长
-- `english-word-00007`（单词：able）已按内部静音压缩修复重新生成，并通过英语质量检查；新视频有 AAC 音轨，音量检查为 mean_volume -24.8 dB / max_volume -7.7 dB，总时长 21804ms；`compare-lead` 从修复前 8480ms 降至 7079ms，原 0.83s 级长停顿已压到约 0.20s 自然短停顿；独立 `able` 发音段为 1040ms
-- 修复英语记忆文案兜底过泛和释义不一致问题：`abnormal/不正常/反常/异常/变态` 等词会生成具体事实场景，不再落入“清晰画面/对应着含义”的万能模板；`mnemonic-grounding` 质量检查会拒绝只复述义项但没有解释性的画面模板，`mnemonic-meaning` 会要求文案覆盖第一条主释义的前两个义项，避免把主释义 `不正常的、变态的` 换成 `不正常的、反常的`
-- `english-word-00008`（单词：abnormal）已按用户选择的体温方案重新生成并通过英语质量检查；文案为“正常体温大约三十六七度，体温计突然显示八十度还说健康”来解释“不正常的、变态的”；视频总时长 25356ms，音量检查为 mean_volume -23.3 dB / max_volume -5.7 dB，音轨连续且 audio manifest 与 render package 时长一致
-- 修复相关词复用解释桥段问题：`abnormally` 这类 `-ly/adv.` 相关词不再复用 `abnormal` 的体温异常桥段，而是生成新的具体场景；质量说明已记录“相关词不能偷懒复用已生成视频的解释场景”
-- `english-word-00009`（单词：abnormally）已按非复用文案重新生成并通过英语质量检查；文案为“正常洗衣机只在原地转，这台却边唱歌边转圈，最后还跳出阳台”来解释“不正常的”；视频总时长 22195ms，音量检查为 mean_volume -24.4 dB / max_volume -6.0 dB，音轨连续且 audio manifest 与 render package 时长一致
-- 更新 `docs/english-video-quality.md`：补充“普通旁白不要把嵌入英文强拆成 English TTS，避免漏读/弱读”和“Qwen 内部长停顿要通过音频后处理压缩”的质量经验；同时移除与当前实现冲突的普通旁白硬 cap 和本地 Qwen 必须使用英文音标提示的旧表述
-- `checkEnglishVideoQuality` 新增 `audio-segment-quality` 检查：逐段验证每个 TTS 音频文件可解码、音量正常（max_volume > -45dB）、实际时长与 manifest 记录匹配（误差 ≤15% 且 ≤200ms）；用于拦截 TTS 偶发故障导至的静音/损坏/截断音频段
-- 新增 `englishPhonetics`：词库没有音标时，从 CMU Pronouncing Dictionary 读取 ARPABET 并转成 IPA，例如 `abbreviation -> /əˌbriːviˈeɪʃən/`
-- `createResearchProvider` 和英文发音 TTS 提示共用补齐后的音标，避免研究稿、页面和发音提示各走一套数据
-- 更新 `checkEnglishVideoQuality`，新增 `phonetic` 检查，要求 approved lesson 和 render payload 都有音标；同时保留 `mnemonic-grounding` 和 `word-entrance-cue`
-- 更新 `createDraftProvider` 的英语记忆句规则：`abandon/abandonment` 使用“决定停掉/停止推进”类动作；`abbreviation` 这类“缩写/缩短/节略”使用“长词/全称缩短成短形式”类动作
-- 补充草稿生成、研究数据和英语质量测试：第四个词必须补出音标，空音标会被质量检查判失败
-- 重新生成并渲染 `english-word-00003` 与 `english-word-00004`，二者完整英语质量检查均通过
-- `english-word-00001` 最新视频路径：`workspace/videos/2026-5-7/02/english-word-00001/render/video.mp4`
-- `english-word-00001` 页面预览截图：`workspace/videos/2026-5-7/02/english-word-00001/render/preview-3s.png`
-- `english-word-00003` 最新视频路径：`workspace/videos/2026-5-24/01/english-word-00003/render/video.mp4`
-- `english-word-00004` 最新视频路径：`workspace/videos/2026-5-24/02/english-word-00004/render/video.mp4`
-- `english-word-00005` 最新视频路径：`workspace/videos/2026-5-26/01/english-word-00005/render/video.mp4`
-- `english-word-00006` 最新视频路径：`workspace/videos/2026-5-26/02/english-word-00006/render/video.mp4`
-- `english-word-00007` 最新视频路径：`workspace/videos/2026-5-27/02/english-word-00007/render/video.mp4`
-- `english-word-00008` 最新视频路径：`workspace/videos/2026-5-27/04/english-word-00008/render/video.mp4`
-- `english-word-00009` 最新视频路径：`workspace/videos/2026-5-27/05/english-word-00009/render/video.mp4`
+- 新增 draft 阶段英语文案质量检查 `checkEnglishDraftQuality`：拦截泛化画面话术、元指令泄漏、弱 abandoned-object 场景，并要求记忆文案覆盖主释义 token。
+- `createDraftProvider` 的 OpenAI 英语 draft 现在会在质量失败时把失败原因反馈进下一次 prompt，最多重试 3 次；仍失败则报错，不再继续流入 review/render。
+- mock 英语 draft 删除最终通用兜底和词性泛兜底；未知义项会明确失败，避免几千词批量时伪成功产出弱模板。
+- 调整测试：保留 mock 明确支持样例的唯一性测试，新增 `aboard` 未知 mock 拒绝测试，新增 OpenAI 英语弱文案重试测试。
+- 因当前环境没有运行时 OpenAI key，本轮 `english-word-00010` 使用词库 research + 人工审校 draft 生成样片；文案用“从岸边上船、站到甲板里”证明 `aboard` 的“在船(车)上；上船”。
+- `english-word-00010` 已用 `qwen-local` 真实 TTS 渲染并通过完整英语质量检查：总时长 26897ms，音量 mean_volume -25.2 dB / max_volume -7.0 dB，audio manifest 与 render package 时长一致。
+- `english-word-00011` 使用词库 research + 人工审校 draft 生成样片；文案用“旧规章被整页划掉、盖章后明天起不再执行”证明 `abolish` 的“废除，取消”。
+- `english-word-00011` 已用 `qwen-local` 真实 TTS 渲染并通过完整英语质量检查：总时长 26110ms，音量 mean_volume -24.7 dB / max_volume -6.8 dB，audio manifest 与 render package 时长一致。
 
-# 关键文件
-- `src/lib/curriculum/englishPhonetics.ts`
-- `src/lib/providers/createResearchProvider.ts`
+# 关键修改文件
+- `src/lib/draft/checkEnglishDraftQuality.ts`
 - `src/lib/providers/createDraftProvider.ts`
-- `src/lib/providers/createTtsProvider.ts`
 - `tests/providers/createDraftProvider.test.ts`
-- `tests/providers/createMockProviders.test.ts`
-- `src/lib/quality/checkEnglishVideoQuality.ts`
-- `tests/quality/englishVideoQuality.test.ts`
-- `src/compositions/adaptiveMotion/AdaptiveMotionComposition.tsx`
-- `src/compositions/adaptiveMotion/visualModules.tsx`
-- `tests/composition.test.tsx`
-- `workspace/videos/2026-5-7/02/english-word-00001/approved/lesson.json`
-- `workspace/videos/2026-5-24/01/english-word-00003/approved/lesson.json`
-- `workspace/videos/2026-5-24/02/english-word-00004/approved/lesson.json`
-- `docs/english-video-quality.md`
-- `src/cli/commands/quality.ts`
-- `src/lib/audio/buildSubtitleTrack.ts`
-- `src/lib/audio/wav.ts`
-- `tests/audio/wav.test.ts`
-- `curriculum/pep-2019/english/wordbank.json`
+- `tests/providers/createOpenAIProviders.test.ts`
+- `workspace/videos/2026-5-28/01/english-word-00010/draft/lesson.json`
+- `workspace/videos/2026-5-28/01/english-word-00010/approved/lesson.json`
+- `workspace/videos/2026-5-28/01/english-word-00010/render/video.mp4`
+- `workspace/videos/2026-5-28/02/english-word-00011/draft/lesson.json`
+- `workspace/videos/2026-5-28/02/english-word-00011/approved/lesson.json`
+- `workspace/videos/2026-5-28/02/english-word-00011/render/video.mp4`
 
 # 运行入口
-- `npm run cli -- research run --topic-id english-word-00002`
-- `npm run cli -- review --action approve --topic-id english-word-00002`
-- `TTS_PROVIDER=qwen-local npm run cli -- produce render --topic-id english-word-00001`
-- `TTS_PROVIDER=qwen-local npm run cli -- produce render --topic-id english-word-00003`
-- `TTS_PROVIDER=qwen-local npm run cli -- produce render --topic-id english-word-00004`
-- `TTS_PROVIDER=qwen-local npm run cli -- quality english --topic-id english-word-00001`
-- `TTS_PROVIDER=qwen-local npm run cli -- quality english --topic-id english-word-00003`
-- `TTS_PROVIDER=qwen-local npm run cli -- quality english --topic-id english-word-00004`
-- `TTS_PROVIDER=qwen-local npm run cli -- produce render --topic-id english-word-00005`
-- `TTS_PROVIDER=qwen-local npm run cli -- quality english --topic-id english-word-00005`
-- `TTS_PROVIDER=qwen-local npm run cli -- produce render --topic-id english-word-00006`
-- `TTS_PROVIDER=qwen-local npm run cli -- quality english --topic-id english-word-00006`
-- `TTS_PROVIDER=qwen-local npm run cli -- produce render --topic-id english-word-00007`
-- `TTS_PROVIDER=qwen-local npm run cli -- quality english --topic-id english-word-00007`
-- `npm run cli -- pipeline to-draft --topic-id english-word-00008`
-- `npm run cli -- review --topic-id english-word-00008 --action approve --note generate-word-8`
-- `TTS_PROVIDER=qwen-local npm run cli -- pipeline to-render --topic-id english-word-00008`
-- `TTS_PROVIDER=qwen-local npm run cli -- quality english --topic-id english-word-00008`
-- `npm run cli -- pipeline to-draft --topic-id english-word-00009`
-- `npm run cli -- review --topic-id english-word-00009 --action approve --note generate-word-9`
-- `TTS_PROVIDER=qwen-local npm run cli -- pipeline to-render --topic-id english-word-00009`
-- `TTS_PROVIDER=qwen-local npm run cli -- quality english --topic-id english-word-00009`
-- `npm test`
-- `npm run lint:types`
+- 正式英语 draft：`PIPELINE_PROVIDER_MODE=openai npm run cli -- pipeline to-draft --topic-id <topic-id>`
+- 审核通过：`npm run cli -- review --topic-id <topic-id> --action approve --note <note>`
+- 真实 Qwen 渲染：`TTS_PROVIDER=qwen-local RENDER_OUTPUT_MODE=real npm run cli -- pipeline to-render --topic-id <topic-id>`
+- 英语质量检查：`TTS_PROVIDER=qwen-local npm run cli -- quality english --topic-id <topic-id>`
+- 回归测试：`npm test`
+- 类型检查：`npm run lint:types`
 
 # 当前注意事项
-- 面向用户检查的视频不要用 `--allow-mock-audio`；分享前运行 `npm run cli -- quality english --topic-id <topic-id>`
-- 批量英语视频生成前必须先确认字幕文案符合学习者视角，不要出现“第 N 个词”、topic id、render index 等内部信息
-- 批量英语视频生成前要确认 `phonetic` 检查通过；当前 CET 词库大多缺音标，补齐逻辑依赖 CMU 北美发音词典，个别专有词或词典外词仍可能需要人工补音标
-- 批量英语视频生成前还要确认记忆句能自然推出当前单词义项；只制造画面但不能证明词义的文案会被 `mnemonic-grounding` 判失败
-- 当前多巴胺词卡会在缺音标时自动隐藏音标行；发音仍按英文单词本身单独合成
-- `english-word-00001` 的旧文案来自早期模板，本轮仅为验证新页面和质量检查更新了该 topic 的 approved lesson，不代表批量生成策略已重新确认
-- 下一轮若要生成 `english-word-00002` 到 `english-word-00020`，先确认字幕展示需求，再按新页面批量生成
+- 面向用户检查的视频不要用 `--allow-mock-audio`；分享前必须跑 `quality english`。
+- 当前环境 `doctor` 显示未配置运行时 OpenAI key；正式批量文案生成前需要配置 `OPENAI_API_KEY`、`PIPELINE_PROVIDER_MODE=openai` 和合适的 `DRAFT_MODEL/RESEARCH_MODEL`。
+- mock provider 不再承诺覆盖任意 CET 单词；未知英语词 draft 失败是预期行为，用来防止弱文案进入正式产物。
+- 后续批量生成 `english-word-00012` 到 `english-word-00020` 前，先确认字幕展示需求和记忆句语义要求，再走正式 provider + quality retry 链路。

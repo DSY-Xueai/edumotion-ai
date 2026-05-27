@@ -364,14 +364,58 @@ describe("createDraftProvider", () => {
     expect(mnemonicText).not.toMatch(/正常体温|三十六七度|体温计|八十度/u);
   });
 
-  it("keeps every script line unique when generating english words 00002 through 00020", async () => {
+  it("rejects unknown english mock mnemonics instead of using a generic picture fallback", async () => {
+    vi.stubEnv("PIPELINE_PROVIDER_MODE", "mock");
+
+    const provider = createDraftProvider();
+
+    await expect(
+      provider.createDraft({
+        topicId: "english-word-00010",
+        research: {
+          topicId: "english-word-00010",
+          scope: "topic",
+          canonicalTitle: "aboard",
+          phonetic: "/əˈbɔrd/",
+          definitions: ["在船、飞机、火车或公共汽车上"],
+          formulas: ["/əˈbɔrd/"],
+          principles: ["adv.", "来源：CET4 + CET6"],
+          examples: [],
+          misconceptions: [],
+          prerequisites: [],
+          nextConnections: [],
+          visualizationHints: [],
+          sources: [],
+        } satisfies TopicResearch,
+        sceneBudgets: {
+          hook: 6,
+          definition: 8,
+          rule: 8,
+          compare: 6,
+          process: 6,
+          graph: 6,
+          pitfall: 6,
+          wrap: 6,
+        },
+        promptContext: "aboard",
+      }),
+    ).rejects.toThrow(/Mock English draft provider cannot create a grounded mnemonic/);
+  });
+
+  it("keeps every script line unique for supported english mock fixtures", async () => {
     vi.stubEnv("PIPELINE_PROVIDER_MODE", "mock");
 
     const researchProvider = await createResearchProvider();
     const draftProvider = createDraftProvider();
-    const topicIds = Array.from({ length: 19 }, (_, index) =>
-      `english-word-${String(index + 2).padStart(5, "0")}`,
-    );
+    const topicIds = [
+      "english-word-00002",
+      "english-word-00003",
+      "english-word-00004",
+      "english-word-00005",
+      "english-word-00007",
+      "english-word-00008",
+      "english-word-00009",
+    ];
     const seen = new Map<string, string>();
 
     for (const topicId of topicIds) {
