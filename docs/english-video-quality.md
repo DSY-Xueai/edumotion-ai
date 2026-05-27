@@ -39,7 +39,10 @@
 ## Mnemonic copy
 - Mnemonics must explain or guide the target meaning. The problem is not a specific sentence being forbidden; the problem is copy that could apply to any word and does not help the viewer understand this word.
 - Each mnemonic should contain meaning anchors from the current word's Chinese definitions, or a concrete action/state that clearly leads to those meanings.
+- Mnemonic wording must keep the primary displayed meaning consistent. If the card says `不正常的；变态的`, the mnemonic and wrap line should keep `不正常的、变态的` instead of swapping in another secondary wording such as `不正常的、反常的`.
 - The scene action must logically prove the meaning. Reject weak links such as `没人再碰`, `放在那里`, `搁置起来`, or `不再继续就是...` when they do not show a clear actor, decision, action, or state.
+- Reject generic picture-copy templates such as `一个清晰的画面闪过眼前`, `它就对应着...`, `放进一个画面`, or `和一个画面焊在一起`. Repeating the Chinese meaning is not enough; the copy must show a concrete or funny/abstract fact that proves the meaning.
+- Do not reuse a previous word video's explanation scenario for a related word. Related forms such as `abnormal` and `abnormally` may share a meaning family, but the mnemonic bridge should use a fresh concrete scene instead of replaying the same body-temperature example.
 - For noun words, especially `-ment` words, frame the mnemonic as an action, decision, result, or state instead of forcing the meaning onto a random object.
 - If a word has multiple Chinese meanings, make the memory line explicitly connect the meanings, for example `abide = 忍受 + 遵守`.
 - Prefer meaning-led copy over decorative story copy when the word does not have a strong custom mnemonic.

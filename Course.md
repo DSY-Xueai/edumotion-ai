@@ -6,7 +6,7 @@
 - 英语草稿生成已加强记忆句语义约束：场景动作必须能直接证明中文义项，避免“没人碰/放在那里/不再继续就是...”这类弱解释
 - 英语研究数据会用 `cmu-pronouncing-dictionary` 补齐词库缺失音标，并转成 IPA；英语质量检查包含 `phonetic`、`word-entrance-cue` 和 `mnemonic-grounding`
 - 英文发音段独立走 TTS，字幕层按音频 cue 对齐显示；用户可审阅视频继续要求真实 TTS，不使用 mock audio
-- `english-word-00001` 已按新页面重新生成并通过英语质量检查；`english-word-00002` 保留此前恢复后的单词课预览；`english-word-00003` 已按新音标补齐、新语义约束文案和当前单词滚入效果重新生成并通过英语质量检查；`english-word-00004` 已作为音标修复测试样片生成并通过英语质量检查；`english-word-00005`、`english-word-00006` 已按新流水线生成并通过英语质量检查；`english-word-00007` 已按新流水线生成并通过英语质量检查；`english-word-00008` 到 `english-word-00020` 的旧产物仍处于已删除状态，等待后续批量生成
+- `english-word-00001` 已按新页面重新生成并通过英语质量检查；`english-word-00002` 保留此前恢复后的单词课预览；`english-word-00003` 已按新音标补齐、新语义约束文案和当前单词滚入效果重新生成并通过英语质量检查；`english-word-00004` 已作为音标修复测试样片生成并通过英语质量检查；`english-word-00005` 到 `english-word-00009` 已按新流水线生成并通过英语质量检查；`english-word-00010` 到 `english-word-00020` 的旧产物仍处于已删除状态，等待后续批量生成
 
 # 本轮变更
 - 修复字幕/音频对齐策略：`buildSubtitleTrack` 不再对 TTS chunk 按标点二次估算拆分，字幕只使用真实 TTS chunk 边界；`splitNarrationText` 会在送 TTS 前拆分带问号的软断点句和较长句，避免生成超过 6 秒的真实长 cue
@@ -15,6 +15,10 @@
 - 修复英语视频中英混合 TTS 漏读/弱读问题：`qwen-local` 普通旁白恢复为整句/真实分句中文 TTS，不再把嵌入英文词拆成独立 English 音频；独立发音词段在本地 Qwen fallback 下改用中文模式读英文词，避免 `able` 这类短词在 Qwen English 模式下生成低音量长段；英语视频多段 TTS 仍顺序合成，避免本地 Qwen 服务半挂
 - 修复 Qwen TTS 偶发内部长停顿：新增 `compressInternalSilenceFromWav`，在每个本地 Qwen TTS 分片首尾裁剪后压缩超过约 180ms 的内部低噪声静音，仅保留约 100ms，避免文案中间出现“等一下才继续说”的延迟感；字幕和渲染时间继续使用处理后的真实音频时长
 - `english-word-00007`（单词：able）已按内部静音压缩修复重新生成，并通过英语质量检查；新视频有 AAC 音轨，音量检查为 mean_volume -24.8 dB / max_volume -7.7 dB，总时长 21804ms；`compare-lead` 从修复前 8480ms 降至 7079ms，原 0.83s 级长停顿已压到约 0.20s 自然短停顿；独立 `able` 发音段为 1040ms
+- 修复英语记忆文案兜底过泛和释义不一致问题：`abnormal/不正常/反常/异常/变态` 等词会生成具体事实场景，不再落入“清晰画面/对应着含义”的万能模板；`mnemonic-grounding` 质量检查会拒绝只复述义项但没有解释性的画面模板，`mnemonic-meaning` 会要求文案覆盖第一条主释义的前两个义项，避免把主释义 `不正常的、变态的` 换成 `不正常的、反常的`
+- `english-word-00008`（单词：abnormal）已按用户选择的体温方案重新生成并通过英语质量检查；文案为“正常体温大约三十六七度，体温计突然显示八十度还说健康”来解释“不正常的、变态的”；视频总时长 25356ms，音量检查为 mean_volume -23.3 dB / max_volume -5.7 dB，音轨连续且 audio manifest 与 render package 时长一致
+- 修复相关词复用解释桥段问题：`abnormally` 这类 `-ly/adv.` 相关词不再复用 `abnormal` 的体温异常桥段，而是生成新的具体场景；质量说明已记录“相关词不能偷懒复用已生成视频的解释场景”
+- `english-word-00009`（单词：abnormally）已按非复用文案重新生成并通过英语质量检查；文案为“正常洗衣机只在原地转，这台却边唱歌边转圈，最后还跳出阳台”来解释“不正常的”；视频总时长 22195ms，音量检查为 mean_volume -24.4 dB / max_volume -6.0 dB，音轨连续且 audio manifest 与 render package 时长一致
 - 更新 `docs/english-video-quality.md`：补充“普通旁白不要把嵌入英文强拆成 English TTS，避免漏读/弱读”和“Qwen 内部长停顿要通过音频后处理压缩”的质量经验；同时移除与当前实现冲突的普通旁白硬 cap 和本地 Qwen 必须使用英文音标提示的旧表述
 - `checkEnglishVideoQuality` 新增 `audio-segment-quality` 检查：逐段验证每个 TTS 音频文件可解码、音量正常（max_volume > -45dB）、实际时长与 manifest 记录匹配（误差 ≤15% 且 ≤200ms）；用于拦截 TTS 偶发故障导至的静音/损坏/截断音频段
 - 新增 `englishPhonetics`：词库没有音标时，从 CMU Pronouncing Dictionary 读取 ARPABET 并转成 IPA，例如 `abbreviation -> /əˌbriːviˈeɪʃən/`
@@ -30,6 +34,8 @@
 - `english-word-00005` 最新视频路径：`workspace/videos/2026-5-26/01/english-word-00005/render/video.mp4`
 - `english-word-00006` 最新视频路径：`workspace/videos/2026-5-26/02/english-word-00006/render/video.mp4`
 - `english-word-00007` 最新视频路径：`workspace/videos/2026-5-27/02/english-word-00007/render/video.mp4`
+- `english-word-00008` 最新视频路径：`workspace/videos/2026-5-27/04/english-word-00008/render/video.mp4`
+- `english-word-00009` 最新视频路径：`workspace/videos/2026-5-27/05/english-word-00009/render/video.mp4`
 
 # 关键文件
 - `src/lib/curriculum/englishPhonetics.ts`
@@ -68,6 +74,14 @@
 - `TTS_PROVIDER=qwen-local npm run cli -- quality english --topic-id english-word-00006`
 - `TTS_PROVIDER=qwen-local npm run cli -- produce render --topic-id english-word-00007`
 - `TTS_PROVIDER=qwen-local npm run cli -- quality english --topic-id english-word-00007`
+- `npm run cli -- pipeline to-draft --topic-id english-word-00008`
+- `npm run cli -- review --topic-id english-word-00008 --action approve --note generate-word-8`
+- `TTS_PROVIDER=qwen-local npm run cli -- pipeline to-render --topic-id english-word-00008`
+- `TTS_PROVIDER=qwen-local npm run cli -- quality english --topic-id english-word-00008`
+- `npm run cli -- pipeline to-draft --topic-id english-word-00009`
+- `npm run cli -- review --topic-id english-word-00009 --action approve --note generate-word-9`
+- `TTS_PROVIDER=qwen-local npm run cli -- pipeline to-render --topic-id english-word-00009`
+- `TTS_PROVIDER=qwen-local npm run cli -- quality english --topic-id english-word-00009`
 - `npm test`
 - `npm run lint:types`
 

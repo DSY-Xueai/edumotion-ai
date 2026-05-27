@@ -376,6 +376,44 @@ const buildEnglishDraft = ({
       ]);
     }
 
+    if (/(不正常|反常|异常|变态)/u.test(meaningTail)) {
+      if (/ly$/i.test(word) || research.principles.some((value) => /^adv\b/i.test(value))) {
+        return {
+          leadText: `怎么记 ${compactMeaning}？正常洗衣机只在原地转，这台却边唱歌边转圈，最后还跳出阳台，`,
+          storyText: `这种动作方式明显就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        };
+      }
+
+      return pickVariant(seed, [
+        {
+          leadText: `怎么记 ${compactMeaning}？正常体温大约三十六七度，体温计突然显示八十度还说健康，`,
+          storyText: `这种明显偏离正常范围的情况，就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: `说起 ${compactMeaning}，正常考试该写答案，有人却把试卷倒过来当菜单点菜，`,
+          storyText: `这种反常状态就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+        {
+          leadText: `记 ${compactMeaning}，就看正常体温三十六七度，屏幕突然跳到八十度还提示健康，`,
+          storyText: `这种明显异常，就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: `${compactMeaning} 的画面：大家都按绿灯往前走，只有这个信号灯半夜开始倒着数数，`,
+          storyText: `这种不按常理来的样子，就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+      ]);
+    }
+
     if (/(出色|有能力|优秀|能干|厉害|杰出|卓越|非凡|出众|棒|强|擅长|精通)/u.test(meaningTail)) {
       return pickVariant(seed, [
         {

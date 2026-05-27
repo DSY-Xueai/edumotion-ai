@@ -36,6 +36,13 @@ const meaningTokens = (definitions: string[]) =>
     .map((token) => token.replace(/[。.!！?？：:]/gu, "").trim())
     .filter((token) => token.length >= 2);
 
+const primaryMeaningTokens = (definitions: string[]) =>
+  (definitions[0] ?? "")
+    .split(/[；;，,、\s]+/u)
+    .map((token) => token.replace(/[。.!！?？：:]/gu, "").trim())
+    .filter((token) => token.length >= 2)
+    .slice(0, 2);
+
 const hasMeaningAnchors = ({
   scriptText,
   definitions,
@@ -80,6 +87,10 @@ const hasGroundedMnemonicCopy = ({
   }
 
   if (/先抓中文义项|不靠空想|这一轮只记.+核心意思|画面只服务|直接对上[：:，,]/mu.test(scriptText)) {
+    return false;
+  }
+
+  if (/清晰的画面|对应着|脑子里立刻有一个场景|放进一个画面|画面里只有一件事|和一个画面焊在一起|那个画面就是/u.test(scriptText)) {
     return false;
   }
 
@@ -326,7 +337,9 @@ export const checkEnglishVideoQuality = async ({
   });
 
   const scriptText = mnemonicScriptText(approvedLesson.approvedScript);
+  const primaryTokens = primaryMeaningTokens(approvedLesson.sourceSummary.definitions);
   const meaningOk =
+    primaryTokens.every((token) => scriptText.includes(token)) &&
     hasMeaningAnchors({
       scriptText,
       definitions: approvedLesson.sourceSummary.definitions,

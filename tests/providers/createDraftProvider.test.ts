@@ -269,6 +269,101 @@ describe("createDraftProvider", () => {
     expect(mnemonicText).not.toContain("不靠空想");
   });
 
+  it("builds abnormal mnemonics from a concrete abnormal scene instead of generic picture copy", async () => {
+    vi.stubEnv("PIPELINE_PROVIDER_MODE", "mock");
+
+    const provider = createDraftProvider();
+    const draft = await provider.createDraft({
+      topicId: "english-word-00008",
+      research: {
+        topicId: "english-word-00008",
+        scope: "topic",
+        canonicalTitle: "abnormal",
+        phonetic: "/æˈbnɔrməl/",
+        definitions: ["不正常的；变态的", "反常的， 异常的"],
+        formulas: ["/æˈbnɔrməl/"],
+        principles: ["adj.", "来源：CET4 + CET6"],
+        examples: [],
+        misconceptions: [],
+        prerequisites: [],
+        nextConnections: [],
+        visualizationHints: [],
+        sources: [],
+      } satisfies TopicResearch,
+      sceneBudgets: {
+        hook: 6,
+        definition: 8,
+        rule: 8,
+        compare: 6,
+        process: 6,
+        graph: 6,
+        pitfall: 6,
+        wrap: 6,
+      },
+      promptContext: "abnormal",
+    });
+
+    const mnemonicText = draft.scriptSegments
+      .filter((segment) => !["hook", "definition", "pronunciation"].includes(segment.kind))
+      .map((segment) => segment.text)
+      .join("\n");
+
+    expect(draft.scriptSegments[2]?.text).toBe(
+      "怎么记 不正常的、变态的？正常体温大约三十六七度，体温计突然显示八十度还说健康，",
+    );
+    expect(draft.scriptSegments[3]?.text).toBe(
+      "这种明显偏离正常范围的情况，就是不正常的、变态的，",
+    );
+    expect(mnemonicText).toContain("不正常的、变态的");
+    expect(mnemonicText).toMatch(/正常体温|三十六七度|八十度|偏离正常范围/u);
+    expect(mnemonicText).not.toMatch(/反常的|异常的/u);
+    expect(mnemonicText).not.toMatch(/清晰的画面|对应着|脑子里立刻有一个场景|放进一个画面|焊在一起/u);
+  });
+
+  it("does not reuse the abnormal scenario for related abnormally videos", async () => {
+    vi.stubEnv("PIPELINE_PROVIDER_MODE", "mock");
+
+    const provider = createDraftProvider();
+    const draft = await provider.createDraft({
+      topicId: "english-word-00009",
+      research: {
+        topicId: "english-word-00009",
+        scope: "topic",
+        canonicalTitle: "abnormally",
+        phonetic: "/æˈbnɔrməli/",
+        definitions: ["不正常的"],
+        formulas: ["/æˈbnɔrməli/"],
+        principles: ["adv.", "来源：CET6"],
+        examples: [],
+        misconceptions: [],
+        prerequisites: [],
+        nextConnections: [],
+        visualizationHints: [],
+        sources: [],
+      } satisfies TopicResearch,
+      sceneBudgets: {
+        hook: 6,
+        definition: 8,
+        rule: 8,
+        compare: 6,
+        process: 6,
+        graph: 6,
+        pitfall: 6,
+        wrap: 6,
+      },
+      promptContext: "abnormally",
+    });
+
+    const mnemonicText = draft.scriptSegments
+      .filter((segment) => !["hook", "definition", "pronunciation"].includes(segment.kind))
+      .map((segment) => segment.text)
+      .join("\n");
+
+    expect(mnemonicText).toContain("不正常的");
+    expect(mnemonicText).toMatch(/洗衣机|跳出阳台|边唱歌边转圈/u);
+    expect(mnemonicText).not.toMatch(/正常体温|三十六七度|体温计|八十度/u);
+  });
+
   it("keeps every script line unique when generating english words 00002 through 00020", async () => {
     vi.stubEnv("PIPELINE_PROVIDER_MODE", "mock");
 

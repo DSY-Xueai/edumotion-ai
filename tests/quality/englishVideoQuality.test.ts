@@ -259,6 +259,163 @@ describe("checkEnglishVideoQuality", () => {
     );
   });
 
+  it("rejects generic picture copy even when it repeats the word meaning", async () => {
+    const workspaceRoot = path.join(process.cwd(), ".tmp-quality-generic-mnemonic");
+    vi.stubEnv("TOPIC_WORKSPACE_ROOT", workspaceRoot);
+    vi.stubEnv("TTS_PROVIDER", "qwen-local");
+
+    const topicRoot = path.join(workspaceRoot, "english-word-quality");
+    await writeJson(path.join(topicRoot, "approved", "lesson.json"), {
+      ...baseApprovedLesson,
+      approvedScript: [
+        { id: "seg-1", kind: "hook", text: "一秒钟记一个单词。" },
+        {
+          id: "seg-2",
+          kind: "definition",
+          text: "今天要记的单词是 abnormal，意思是：不正常的；变态的。",
+        },
+        { id: "seg-3", kind: "compare", text: "怎么记 不正常的、变态的？一个清晰的画面闪过眼前，" },
+        { id: "seg-4", kind: "pitfall", text: "它就对应着不正常的、变态的，" },
+        { id: "seg-5", kind: "pronunciation", text: "abnormal" },
+        { id: "seg-6", kind: "wrap", text: "所以：abnormal，就是不正常的、变态的。" },
+      ],
+      sourceSummary: {
+        ...baseApprovedLesson.sourceSummary,
+        canonicalTitle: "abnormal",
+        phonetic: "/æˈbnɔrməl/",
+        definitions: ["不正常的；变态的", "反常的， 异常的"],
+        principles: ["adj."],
+      },
+    });
+    await writeJson(path.join(topicRoot, "audio", "manifest.json"), {
+      ...baseAudioManifest,
+      subtitleTrack: {
+        cues: [
+          {
+            id: "seg-2:1",
+            segmentId: "seg-2",
+            text: "今天要记的单词是 abnormal，意思是：不正常的；变态的。",
+            startMs: 0,
+            endMs: 3000,
+          },
+        ],
+      },
+      totalDurationMs: 20000,
+    });
+    await writeJson(path.join(topicRoot, "render", "render-package.json"), {
+      ...baseRenderPackage,
+      canonicalTitle: "abnormal",
+      totalDurationMs: 20000,
+      subtitleTrack: {
+        ...baseRenderPackage.subtitleTrack,
+        cues: [
+          {
+            id: "seg-2:1",
+            segmentId: "seg-2",
+            text: "今天要记的单词是 abnormal，意思是：不正常的；变态的。",
+            startMs: 0,
+            endMs: 3000,
+          },
+        ],
+      },
+      scenes: [
+        {
+          ...baseRenderPackage.scenes[0],
+          payload: {
+            ...baseRenderPackage.scenes[0].payload,
+            word: "abnormal",
+            phonetic: "/æˈbnɔrməl/",
+            meaning: "不正常的；变态的",
+            segmentIds: ["seg-2"],
+            subtitleCues: [
+              {
+                id: "seg-2:1",
+                segmentId: "seg-2",
+                text: "今天要记的单词是 abnormal，意思是：不正常的；变态的。",
+                startMs: 0,
+                endMs: 3000,
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    const result = await checkEnglishVideoQuality({
+      topicId: "english-word-quality",
+      inspectMedia: false,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "mnemonic-grounding", ok: false }),
+      ]),
+    );
+  });
+
+  it("requires mnemonic copy to keep the primary displayed meaning", async () => {
+    const workspaceRoot = path.join(process.cwd(), ".tmp-quality-meaning-mismatch");
+    vi.stubEnv("TOPIC_WORKSPACE_ROOT", workspaceRoot);
+    vi.stubEnv("TTS_PROVIDER", "qwen-local");
+
+    const topicRoot = path.join(workspaceRoot, "english-word-quality");
+    await writeJson(path.join(topicRoot, "approved", "lesson.json"), {
+      ...baseApprovedLesson,
+      approvedScript: [
+        { id: "seg-1", kind: "hook", text: "一秒钟记一个单词。" },
+        {
+          id: "seg-2",
+          kind: "definition",
+          text: "今天要记的单词是 abnormal，意思是：不正常的；变态的。",
+        },
+        { id: "seg-3", kind: "compare", text: "正常体温大约三十六七度，体温计突然显示八十度还说健康，" },
+        { id: "seg-4", kind: "pitfall", text: "这种明显偏离正常范围的情况，就是不正常的、反常的，" },
+        { id: "seg-5", kind: "pronunciation", text: "abnormal" },
+        { id: "seg-6", kind: "wrap", text: "所以：abnormal，就是不正常的、反常的。" },
+      ],
+      sourceSummary: {
+        ...baseApprovedLesson.sourceSummary,
+        canonicalTitle: "abnormal",
+        phonetic: "/æˈbnɔrməl/",
+        definitions: ["不正常的；变态的", "反常的， 异常的"],
+        principles: ["adj."],
+      },
+    });
+    await writeJson(path.join(topicRoot, "audio", "manifest.json"), {
+      ...baseAudioManifest,
+      totalDurationMs: 20000,
+    });
+    await writeJson(path.join(topicRoot, "render", "render-package.json"), {
+      ...baseRenderPackage,
+      canonicalTitle: "abnormal",
+      totalDurationMs: 20000,
+      scenes: [
+        {
+          ...baseRenderPackage.scenes[0],
+          payload: {
+            ...baseRenderPackage.scenes[0].payload,
+            word: "abnormal",
+            phonetic: "/æˈbnɔrməl/",
+            meaning: "不正常的；变态的",
+          },
+        },
+      ],
+    });
+
+    const result = await checkEnglishVideoQuality({
+      topicId: "english-word-quality",
+      inspectMedia: false,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "mnemonic-meaning", ok: false }),
+      ]),
+    );
+  });
+
   it("rejects English render packages without a visible phonetic cue", async () => {
     const workspaceRoot = path.join(process.cwd(), ".tmp-quality-missing-phonetic");
     vi.stubEnv("TOPIC_WORKSPACE_ROOT", workspaceRoot);
