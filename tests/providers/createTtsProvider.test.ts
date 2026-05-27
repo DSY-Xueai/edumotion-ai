@@ -394,7 +394,90 @@ describe("createTtsProvider", () => {
     expect(results?.[1]?.durationMs).toBeGreaterThan(0);
   });
 
-  it("uses English language instructions for pronunciation segments when OpenAI is unavailable", async () => {
+  it("uses Chinese Qwen mode for fallback English pronunciation in multi-segment synthesis", async () => {
+    vi.stubEnv("PIPELINE_PROVIDER_MODE", "mock");
+    vi.stubEnv("TTS_PROVIDER", "qwen-local");
+    vi.stubEnv("QWEN_TTS_BASE_URL", "http://127.0.0.1:8020");
+    vi.stubEnv("QWEN_TTS_SPEAKER", "Vivian");
+    vi.stubEnv("QWEN_TTS_AUTO_START", "false");
+
+    const payloads: Array<{ text?: string; language?: string; instruct?: string }> = [];
+    const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url !== "http://127.0.0.1:8020/v1/audio/speech") {
+        throw new Error(`Unexpected fetch request: ${url}`);
+      }
+
+      payloads.push(JSON.parse(String(init?.body ?? "{}")));
+
+      return new Response(createSilentWav(500), {
+        status: 200,
+        headers: { "content-type": "audio/wav" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = createTtsProvider();
+    await provider.synthesizeSegments?.({
+      topicId: "english-word-00007",
+      segments: [
+        { id: "english-word-00007-seg-pronunciation", kind: "pronunciation", text: "able" },
+        { id: "english-word-00007-seg-wrap", kind: "wrap", text: "所以：able，就是有能力的、出色的。" },
+      ],
+    });
+
+    expect(payloads[0]).toEqual(
+      expect.objectContaining({
+        text: "able",
+        language: "Chinese",
+      }),
+    );
+    expect(payloads[0]?.instruct).toContain("英文单词 able");
+  });
+
+  it("synthesizes English-video Qwen segments sequentially to avoid overloading the local server", async () => {
+    vi.stubEnv("PIPELINE_PROVIDER_MODE", "mock");
+    vi.stubEnv("TTS_PROVIDER", "qwen-local");
+    vi.stubEnv("QWEN_TTS_BASE_URL", "http://127.0.0.1:8020");
+    vi.stubEnv("QWEN_TTS_SPEAKER", "Vivian");
+    vi.stubEnv("QWEN_TTS_AUTO_START", "false");
+
+    let activeRequests = 0;
+    let maxActiveRequests = 0;
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url !== "http://127.0.0.1:8020/v1/audio/speech") {
+        throw new Error(`Unexpected fetch request: ${url}`);
+      }
+
+      activeRequests += 1;
+      maxActiveRequests = Math.max(maxActiveRequests, activeRequests);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      activeRequests -= 1;
+
+      return new Response(createSilentWav(300), {
+        status: 200,
+        headers: { "content-type": "audio/wav" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = createTtsProvider();
+    await provider.synthesizeSegments?.({
+      topicId: "english-word-00007",
+      segments: [
+        { id: "english-word-00007-seg-definition", kind: "definition", text: "今天要记 able。" },
+        { id: "english-word-00007-seg-pronunciation", kind: "pronunciation", text: "able" },
+        { id: "english-word-00007-seg-wrap", kind: "wrap", text: "所以 able。" },
+      ],
+    });
+
+    expect(maxActiveRequests).toBe(1);
+  });
+
+  it("uses Chinese Qwen mode for pronunciation segments when OpenAI is unavailable", async () => {
     vi.stubEnv("PIPELINE_PROVIDER_MODE", "mock");
     vi.stubEnv("TTS_PROVIDER", "qwen-local");
     vi.stubEnv("QWEN_TTS_BASE_URL", "http://127.0.0.1:8020");
@@ -407,8 +490,8 @@ describe("createTtsProvider", () => {
       if (url === "http://127.0.0.1:8020/v1/audio/speech") {
         const payload = JSON.parse(String(init?.body ?? "{}")) as { text?: string; language?: string; instruct?: string };
         if (payload.text === "abandon") {
-          expect(payload.language).toBe("English");
-          expect(payload.instruct).toContain("standard English pronunciation");
+          expect(payload.language).toBe("Chinese");
+          expect(payload.instruct).toContain("英文单词 abandon");
           return new Response(createSilentWav(500), { status: 200, headers: { "content-type": "audio/wav" } });
         }
 
@@ -431,6 +514,48 @@ describe("createTtsProvider", () => {
 
     expect(results?.[0]?.chunks[0]?.text).toBe("abandon");
     expect(results?.[1]?.chunks[0]?.text).toBe("中文说明。");
+  });
+
+  it("keeps embedded English words inside normal English-video narration chunks", async () => {
+    vi.stubEnv("PIPELINE_PROVIDER_MODE", "mock");
+    vi.stubEnv("TTS_PROVIDER", "qwen-local");
+    vi.stubEnv("QWEN_TTS_BASE_URL", "http://127.0.0.1:8020");
+    vi.stubEnv("QWEN_TTS_SPEAKER", "Vivian");
+    vi.stubEnv("QWEN_TTS_AUTO_START", "false");
+
+    const payloads: Array<{ text?: string; language?: string; instruct?: string }> = [];
+    const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url !== "http://127.0.0.1:8020/v1/audio/speech") {
+        throw new Error(`Unexpected fetch request: ${url}`);
+      }
+
+      payloads.push(JSON.parse(String(init?.body ?? "{}")));
+
+      return new Response(createSilentWav(300), {
+        status: 200,
+        headers: { "content-type": "audio/wav" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = createTtsProvider();
+    const result = await provider.synthesizeSegment({
+      topicId: "english-word-00007",
+      segment: {
+        id: "english-word-00007-seg-wrap",
+        kind: "wrap",
+        text: "所以：able，就是有能力的、出色的。",
+      },
+    });
+
+    expect(payloads.map((payload) => ({ text: payload.text, language: payload.language }))).toEqual([
+      { text: "所以：able，就是有能力的、出色的。", language: "Chinese" },
+    ]);
+    expect(result.chunks.map((chunk) => chunk.text)).toEqual([
+      "所以：able，就是有能力的、出色的。",
+    ]);
   });
 
   it("caps overlong local English pronunciation audio to a short word beat", async () => {
@@ -459,7 +584,7 @@ describe("createTtsProvider", () => {
     expect(result.chunks).toEqual([{ text: "able", startMs: 0, endMs: 2500 }]);
   });
 
-  it("caps overlong local English-video Chinese segments below the subtitle limit", async () => {
+  it("keeps overlong local English-video narration segments so visible copy is not cut off", async () => {
     vi.stubEnv("PIPELINE_PROVIDER_MODE", "mock");
     vi.stubEnv("TTS_PROVIDER", "qwen-local");
     vi.stubEnv("QWEN_TTS_BASE_URL", "http://127.0.0.1:8020");
@@ -480,8 +605,8 @@ describe("createTtsProvider", () => {
       segment: { id: "english-word-00002-seg-definition", kind: "definition", text: "第2个，意思：丢弃、放弃。" },
     });
 
-    expect(result.durationMs).toBe(5500);
-    expect(readWavInfo(result.audioFile.data).durationMs).toBe(5500);
-    expect(result.chunks).toEqual([{ text: "第2个，意思：丢弃、放弃。", startMs: 0, endMs: 5500 }]);
+    expect(result.durationMs).toBe(8240);
+    expect(readWavInfo(result.audioFile.data).durationMs).toBe(8240);
+    expect(result.chunks).toEqual([{ text: "第2个，意思：丢弃、放弃。", startMs: 0, endMs: 8240 }]);
   });
 });

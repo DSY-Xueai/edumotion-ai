@@ -25,17 +25,20 @@ export const splitNarrationText = (text: string): string[] => {
   pushIfNotEmpty(sentenceParts, current);
 
   return sentenceParts.flatMap((part) => {
-    if (part.length <= 32) {
+    const shouldSplitAtSoftBreaks = part.length > 32 || /[？?]/u.test(part);
+
+    if (!shouldSplitAtSoftBreaks) {
       return [part];
     }
 
     const shortParts: string[] = [];
     let shortPart = "";
+    const minSoftBreakLength = /[？?]/u.test(part) ? 8 : 10;
 
     for (const char of part) {
       shortPart += char;
 
-      if (softBreakPattern.test(char) && shortPart.trim().length >= 10) {
+      if (softBreakPattern.test(char) && shortPart.trim().length >= minSoftBreakLength) {
         pushIfNotEmpty(shortParts, shortPart);
         shortPart = "";
       }

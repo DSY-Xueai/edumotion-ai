@@ -16,6 +16,13 @@ type TrimmedWav = {
   trimmed: boolean;
 };
 
+type CompressedWav = {
+  bytes: Uint8Array<ArrayBuffer>;
+  durationMs: number;
+  removedMs: number;
+  compressed: boolean;
+};
+
 const readAscii = (view: DataView, offset: number, length: number) => {
   let value = "";
 
@@ -266,6 +273,120 @@ export const trimSilenceFromWav = (
     trimStartMs,
     trimEndMs,
     trimmed: true,
+  };
+};
+
+export const compressInternalSilenceFromWav = (
+  bytes: Uint8Array<ArrayBuffer>,
+  {
+    threshold = 1000,
+    minSilenceMs = 180,
+    keepSilenceMs = 100,
+  }: {
+    threshold?: number;
+    minSilenceMs?: number;
+    keepSilenceMs?: number;
+  } = {},
+): CompressedWav => {
+  const info = readWavInfo(bytes);
+
+  if (info.bitsPerSample !== 16) {
+    return {
+      bytes,
+      durationMs: info.durationMs,
+      removedMs: 0,
+      compressed: false,
+    };
+  }
+
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const frameCount = Math.floor(info.dataSize / info.blockAlign);
+  const minSilenceFrames = Math.round((minSilenceMs / 1000) * info.sampleRate);
+  const keepSilenceFrames = Math.round((keepSilenceMs / 1000) * info.sampleRate);
+  const ranges: Array<{ startFrame: number; endFrame: number }> = [];
+
+  const isFrameSilent = (frameIndex: number) => {
+    const frameOffset = info.dataOffset + frameIndex * info.blockAlign;
+
+    for (let channelIndex = 0; channelIndex < info.channelCount; channelIndex += 1) {
+      const sampleOffset = frameOffset + channelIndex * 2;
+      const sample = view.getInt16(sampleOffset, true);
+
+      if (Math.abs(sample) > threshold) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  let frameIndex = 0;
+  let outputFrameCount = 0;
+
+  const keepRange = (startFrame: number, endFrame: number) => {
+    if (endFrame <= startFrame) {
+      return;
+    }
+
+    ranges.push({ startFrame, endFrame });
+    outputFrameCount += endFrame - startFrame;
+  };
+
+  while (frameIndex < frameCount) {
+    const runStartFrame = frameIndex;
+    const silent = isFrameSilent(frameIndex);
+
+    while (frameIndex < frameCount && isFrameSilent(frameIndex) === silent) {
+      frameIndex += 1;
+    }
+
+    const runEndFrame = frameIndex;
+    const runFrameCount = runEndFrame - runStartFrame;
+    const isInternalSilence =
+      silent && runStartFrame > 0 && runEndFrame < frameCount;
+
+    if (
+      !isInternalSilence ||
+      runFrameCount < minSilenceFrames ||
+      runFrameCount <= keepSilenceFrames
+    ) {
+      keepRange(runStartFrame, runEndFrame);
+      continue;
+    }
+
+    const keepBeforeFrames = Math.floor(keepSilenceFrames / 2);
+    const keepAfterFrames = keepSilenceFrames - keepBeforeFrames;
+    keepRange(runStartFrame, runStartFrame + keepBeforeFrames);
+    keepRange(runEndFrame - keepAfterFrames, runEndFrame);
+  }
+
+  if (outputFrameCount === frameCount) {
+    return {
+      bytes,
+      durationMs: info.durationMs,
+      removedMs: 0,
+      compressed: false,
+    };
+  }
+
+  const dataSize = outputFrameCount * info.blockAlign;
+  const output = writeWavHeader(info, dataSize);
+  let outputOffset = 44;
+
+  for (const range of ranges) {
+    const inputOffset = info.dataOffset + range.startFrame * info.blockAlign;
+    const inputSize = (range.endFrame - range.startFrame) * info.blockAlign;
+    output.set(bytes.slice(inputOffset, inputOffset + inputSize), outputOffset);
+    outputOffset += inputSize;
+  }
+
+  const durationMs = Math.round((outputFrameCount / info.sampleRate) * 1000);
+
+  return {
+    bytes: output,
+    durationMs,
+    removedMs: info.durationMs - durationMs,
+    compressed: true,
   };
 };
 

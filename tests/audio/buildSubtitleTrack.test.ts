@@ -44,4 +44,30 @@ describe("buildSubtitleTrack", () => {
       },
     ]);
   });
+
+  it("does not split a timed TTS chunk by punctuation without real audio boundaries", () => {
+    const track = buildSubtitleTrack([
+      {
+        segmentId: "seg-wrap",
+        durationMs: 3600,
+        chunks: [
+          {
+            text: "所以：able，就是有能力的、出色的。",
+            startMs: 0,
+            endMs: 3600,
+          },
+        ],
+      },
+    ]);
+
+    expect(track.cues).toEqual([
+      {
+        id: "seg-wrap:1",
+        segmentId: "seg-wrap",
+        text: "所以：able，就是有能力的、出色的。",
+        startMs: 0,
+        endMs: 3600,
+      },
+    ]);
+  });
 });

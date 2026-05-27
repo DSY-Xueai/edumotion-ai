@@ -79,6 +79,10 @@ const hasGroundedMnemonicCopy = ({
     return false;
   }
 
+  if (/先抓中文义项|不靠空想|这一轮只记.+核心意思|画面只服务|直接对上[：:，,]/mu.test(scriptText)) {
+    return false;
+  }
+
   if (/(放弃|丢弃|抛弃|舍弃)/u.test(definitionText)) {
     return /决定|主动|停掉|停止|终止|丢下不管|直接丢掉|不再负责|不再推进|不再承担|放弃这件事/u.test(
       scriptText,
@@ -384,6 +388,50 @@ export const checkEnglishVideoQuality = async ({
   });
 
   if (inspectMedia) {
+    const segmentIssues: Array<{ segmentId: string; audioPath: string; reason: string }> = [];
+    for (const segment of audioManifest.segments) {
+      const segmentAudioPath = path.join(workspace, segment.audioPath);
+      try {
+        const { stdout } = await execFileAsync("ffprobe", [
+          "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", segmentAudioPath,
+        ]);
+        const actualDurationSec = Number(stdout.trim());
+        if (!Number.isFinite(actualDurationSec) || actualDurationSec <= 0) {
+          segmentIssues.push({ segmentId: segment.segmentId, audioPath: segment.audioPath, reason: "Audio file is empty or unreadable." });
+          continue;
+        }
+        const actualDurationMs = Math.round(actualDurationSec * 1000);
+        const expectedMs = segment.durationMs;
+        if (expectedMs > 0 && Math.abs(actualDurationMs - expectedMs) > Math.max(expectedMs * 0.15, 200)) {
+          segmentIssues.push({ segmentId: segment.segmentId, audioPath: segment.audioPath, reason: `Duration mismatch: expected ${expectedMs}ms, got ${actualDurationMs}ms.` });
+        }
+      } catch {
+        segmentIssues.push({ segmentId: segment.segmentId, audioPath: segment.audioPath, reason: "Audio file cannot be decoded." });
+        continue;
+      }
+
+      try {
+        const { stderr } = await execFileAsync("ffmpeg", [
+          "-hide_banner", "-i", segmentAudioPath, "-af", "volumedetect", "-f", "null", "NUL",
+        ]);
+        const maxMatch = stderr.match(/max_volume:\s*(-?\d+(?:\.\d+)?) dB/u);
+        const maxVolumeDb = maxMatch ? Number(maxMatch[1]) : undefined;
+        if (maxVolumeDb === undefined || !Number.isFinite(maxVolumeDb) || maxVolumeDb <= -45) {
+          segmentIssues.push({ segmentId: segment.segmentId, audioPath: segment.audioPath, reason: `Audio is near-silent or unreadable (max_volume: ${maxVolumeDb ?? "missing"} dB).` });
+        }
+      } catch {
+        segmentIssues.push({ segmentId: segment.segmentId, audioPath: segment.audioPath, reason: "Cannot measure audio volume." });
+      }
+    }
+    checks.push({
+      id: "audio-segment-quality",
+      ok: segmentIssues.length === 0,
+      message: segmentIssues.length === 0
+        ? "Every TTS audio segment is decodable, audible, and duration-matched."
+        : `${segmentIssues.length} audio segment(s) have playback issues.`,
+      details: segmentIssues,
+    });
+
     const videoPath = path.join(workspace, "render", "video.mp4");
     try {
       const hasAudio = await inspectAudioStream(videoPath);

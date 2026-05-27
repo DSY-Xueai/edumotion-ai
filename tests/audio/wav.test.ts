@@ -1,20 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { readWavInfo, trimSilenceFromWav } from "../../src/lib/audio/wav";
+import {
+  compressInternalSilenceFromWav,
+  readWavInfo,
+  trimSilenceFromWav,
+} from "../../src/lib/audio/wav";
 
 const createToneWav = ({
   leadSilenceMs = 0,
   toneMs = 500,
+  internalSilenceMs = 0,
+  secondToneMs = 0,
   trailSilenceMs = 0,
+  silenceAmplitude = 0,
 }: {
   leadSilenceMs?: number;
   toneMs?: number;
+  internalSilenceMs?: number;
+  secondToneMs?: number;
   trailSilenceMs?: number;
+  silenceAmplitude?: number;
 }) => {
   const sampleRate = 16000;
   const bytesPerSample = 2;
+  const totalDurationMs =
+    leadSilenceMs + toneMs + internalSilenceMs + secondToneMs + trailSilenceMs;
   const sampleCount = Math.max(
     1,
-    Math.round(((leadSilenceMs + toneMs + trailSilenceMs) / 1000) * sampleRate),
+    Math.round((totalDurationMs / 1000) * sampleRate),
   );
   const dataSize = sampleCount * bytesPerSample;
   const buffer = new ArrayBuffer(44 + dataSize);
@@ -52,11 +64,16 @@ const createToneWav = ({
   offset += 4;
 
   for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
-    const withinTone = sampleIndex >= (leadSilenceMs / 1000) * sampleRate &&
-      sampleIndex < ((leadSilenceMs + toneMs) / 1000) * sampleRate;
+    const timeMs = (sampleIndex / sampleRate) * 1000;
+    const withinFirstTone =
+      timeMs >= leadSilenceMs && timeMs < leadSilenceMs + toneMs;
+    const secondToneStartMs = leadSilenceMs + toneMs + internalSilenceMs;
+    const withinSecondTone =
+      timeMs >= secondToneStartMs && timeMs < secondToneStartMs + secondToneMs;
+    const withinTone = withinFirstTone || withinSecondTone;
     const amplitude = withinTone
       ? Math.round(Math.sin((2 * Math.PI * 220 * sampleIndex) / sampleRate) * 9000)
-      : 0;
+      : silenceAmplitude;
 
     view.setInt16(offset, amplitude, true);
     offset += 2;
@@ -76,5 +93,52 @@ describe("trimSilenceFromWav", () => {
     expect(trimmed.durationMs).toBeLessThan(700);
     expect(trimmed.durationMs).toBeGreaterThan(450);
     expect(readWavInfo(trimmed.bytes).durationMs).toBe(trimmed.durationMs);
+  });
+});
+
+describe("compressInternalSilenceFromWav", () => {
+  it("shortens long silence between spoken parts while preserving speech", () => {
+    const source = createToneWav({
+      toneMs: 400,
+      internalSilenceMs: 800,
+      secondToneMs: 400,
+    });
+    const compressed = compressInternalSilenceFromWav(source, {
+      threshold: 320,
+      minSilenceMs: 250,
+      keepSilenceMs: 140,
+    });
+
+    expect(compressed.compressed).toBe(true);
+    expect(compressed.removedMs).toBeGreaterThanOrEqual(600);
+    expect(compressed.durationMs).toBeGreaterThanOrEqual(900);
+    expect(compressed.durationMs).toBeLessThanOrEqual(1000);
+    expect(readWavInfo(compressed.bytes).durationMs).toBe(compressed.durationMs);
+  });
+
+  it("treats low noise pauses as silence by default", () => {
+    const source = createToneWav({
+      toneMs: 400,
+      internalSilenceMs: 800,
+      secondToneMs: 400,
+      silenceAmplitude: 600,
+    });
+    const compressed = compressInternalSilenceFromWav(source);
+
+    expect(compressed.compressed).toBe(true);
+    expect(compressed.durationMs).toBeLessThan(1100);
+  });
+
+  it("shortens small waits that are still noticeable in narration", () => {
+    const source = createToneWav({
+      toneMs: 400,
+      internalSilenceMs: 210,
+      secondToneMs: 400,
+      silenceAmplitude: 600,
+    });
+    const compressed = compressInternalSilenceFromWav(source);
+
+    expect(compressed.compressed).toBe(true);
+    expect(compressed.durationMs).toBeLessThanOrEqual(910);
   });
 });

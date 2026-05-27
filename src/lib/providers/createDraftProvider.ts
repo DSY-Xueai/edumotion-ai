@@ -376,24 +376,397 @@ const buildEnglishDraft = ({
       ]);
     }
 
+    if (/(出色|有能力|优秀|能干|厉害|杰出|卓越|非凡|出众|棒|强|擅长|精通)/u.test(meaningTail)) {
+      return pickVariant(seed, [
+        {
+          leadText: `怎么记 ${compactMeaning}？别人做不了的事，你轻松就拿下了，`,
+          storyText: `这种本事就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: `${compactMeaning} 的最好画面：难题摆在面前，别人绕路，你直接把它解了，`,
+          storyText: `这种表现就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+        {
+          leadText: `说起 ${compactMeaning}，一群人里只有你敢站出来把事情做成，`,
+          storyText: `这就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: `记 ${compactMeaning} 有一招：别人还在犹豫，你已经做完了，`,
+          storyText: `这种状态就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+        {
+          leadText: `${compactMeaning} 这个词，想到的是：再难的事交给你，都能成，`,
+          storyText: `这就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+      ]);
+    }
+
+    if (/(聪明|智慧|明智|机灵|灵巧)/u.test(meaningTail)) {
+      return pickVariant(seed, [
+        {
+          leadText: `怎么记 ${compactMeaning}？一个问题还没说完，你已经知道答案了，`,
+          storyText: `这种反应就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: `${compactMeaning} 的画面：别人还在翻书，你一眼就看透了关键，`,
+          storyText: `这种脑筋就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+        {
+          leadText: `说起 ${compactMeaning}，就像考试时别人还在读题，你已经交卷了，`,
+          storyText: `这种脑子就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+      ]);
+    }
+
+    if (/(勇敢|大胆|英勇|无畏)/u.test(meaningTail)) {
+      return pickVariant(seed, [
+        {
+          leadText: `怎么记 ${compactMeaning}？周围的人都往后退，你一步跨了出去，`,
+          storyText: `这个动作就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: `${compactMeaning} 的画面：明知有风险，还是第一个举起了手，`,
+          storyText: `这种气魄就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+        {
+          leadText: `说到 ${compactMeaning}，心里有恐惧但行动没有停下，`,
+          storyText: `这股胆量就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+      ]);
+    }
+
+    if (/(善良|仁慈|大方|慷慨|好心|体贴)/u.test(meaningTail)) {
+      return pickVariant(seed, [
+        {
+          leadText: `怎么记 ${compactMeaning}？一个陌生人摔倒了，你二话不说就去扶，`,
+          storyText: `这种心意就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: `${compactMeaning} 的画面：自己不多拿，反而把多的那份让给了别人，`,
+          storyText: `这种举动就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+        {
+          leadText: `说起 ${compactMeaning}，明明可以不给，却主动伸出了手，`,
+          storyText: `这颗心就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+      ]);
+    }
+
+    if (/(坚强|坚定|顽强|牢固|稳固|刚强)/u.test(meaningTail)) {
+      return pickVariant(seed, [
+        {
+          leadText: `怎么记 ${compactMeaning}？一遍又一遍地失败，可你站起来继续，`,
+          storyText: `这股劲就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: `${compactMeaning} 的画面：不管别人怎么劝你放弃，你都纹丝不动，`,
+          storyText: `这种定力就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+        {
+          leadText: `要说 ${compactMeaning}，受再多打击，心还是硬的，脊梁还是直的，`,
+          storyText: `这种韧性就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+      ]);
+    }
+
+    if (/(懒|笨|蠢|胆小|粗心|自私|傲慢|小气|贪|凶|狠)/u.test(meaningTail)) {
+      return pickVariant(seed, [
+        {
+          leadText: `怎么记 ${compactMeaning}？明明该做的事，找一堆借口不去碰，`,
+          storyText: `这副样子就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: `${compactMeaning} 的画面：一个机会在眼前，因为怕就缩了回去，`,
+          storyText: `这种退缩就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+        {
+          leadText: `说起 ${compactMeaning}，眼里只有自己，完全不管别人的感受，`,
+          storyText: `这种态度就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: `${compactMeaning} 这个词，画面很清楚：该做的事不去做，该帮的人不去帮，`,
+          storyText: `这就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+      ]);
+    }
+
+    if (/(快|慢|迅速|缓慢)/u.test(meaningTail)) {
+      return pickVariant(seed, [
+        {
+          leadText: `怎么记 ${compactMeaning}？一眨眼的功夫，事情已经办完了，`,
+          storyText: `这种节奏就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: `${compactMeaning} 的画面：别人刚起步，你这边已经到终点了，`,
+          storyText: `这个速度就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+        {
+          leadText: `说 ${compactMeaning}，就像等红灯时旁边车道已经绿了，`,
+          storyText: `这种对比就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+      ]);
+    }
+
+    if (/(大|小|巨大|微小|强|弱|高|矮|宽阔|狭窄)/u.test(meaningTail)) {
+      return pickVariant(seed, [
+        {
+          leadText: `怎么记 ${compactMeaning}？两个东西放在一起，差距一目了然，`,
+          storyText: `其中一个就是${compactMeaning}的，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: `${compactMeaning} 的画面：和周围一比，它立刻突了出来，`,
+          storyText: `这种感觉就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+        {
+          leadText: `记 ${compactMeaning} 很简单：从这一头看不到那一头，`,
+          storyText: `这感觉就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+      ]);
+    }
+
+    if (/(难|容易|简单|困难|复杂)/u.test(meaningTail)) {
+      return pickVariant(seed, [
+        {
+          leadText: `怎么记 ${compactMeaning}？第一次上手就做完了，没翻书没问人，`,
+          storyText: `这种体验就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: `${compactMeaning} 的画面：试了好几遍都在同一个地方卡住，`,
+          storyText: `这种感觉就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+        {
+          leadText: `说到 ${compactMeaning}，就是那种一步还是十步才能走完的差别，`,
+          storyText: `这种体验就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+      ]);
+    }
+
+    if (/(美|漂亮|好看|丑|难看)/u.test(meaningTail)) {
+      return pickVariant(seed, [
+        {
+          leadText: `怎么记 ${compactMeaning}？一眼看过去，目光就移不开了，`,
+          storyText: `这就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: `${compactMeaning} 的画面：不需要任何解释，眼睛自己会告诉你，`,
+          storyText: `这种感觉就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+        {
+          leadText: `说起 ${compactMeaning}，就是一种你看到了就自然知道的东西，`,
+          storyText: `这就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+      ]);
+    }
+
+    if (/(热|冷|温暖|寒冷|凉|烫)/u.test(meaningTail)) {
+      return pickVariant(seed, [
+        {
+          leadText: `怎么记 ${compactMeaning}？皮肤一碰到，信号立刻传遍全身，`,
+          storyText: `这种感觉就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: `${compactMeaning} 很好记：伸出手的那一瞬间，身体自己告诉你的，`,
+          storyText: `就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+      ]);
+    }
+
+    if (/(好|棒|佳|良)/u.test(meaningTail)) {
+      return pickVariant(seed, [
+        {
+          leadText: `怎么记 ${compactMeaning}？一件事做完，你忍不住给自己点头，`,
+          storyText: `这种评价就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: `${compactMeaning} 的画面：从里到外都挑不出毛病，`,
+          storyText: `这感觉就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+      ]);
+    }
+
+    if (/(坏|差|劣|糟糕|可怕|讨厌)/u.test(meaningTail)) {
+      return pickVariant(seed, [
+        {
+          leadText: `怎么记 ${compactMeaning}？经历完这件事，你再也不想碰到第二次，`,
+          storyText: `这种感受就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: `${compactMeaning} 的画面：从头到尾都让人想逃离，`,
+          storyText: `这种感觉就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+      ]);
+    }
+
+    const posDetect = research.principles.join(" ").toLowerCase();
+    const isVerb = /^v\b|^verb\b/.test(posDetect);
+    const isNoun = /^n\b|^noun\b/.test(posDetect);
+
+    if (isVerb) {
+      return pickVariant(seed, [
+        {
+          leadText: `怎么记 ${compactMeaning}？你亲眼看到一个人正在做一件事，`,
+          storyText: `那个动作就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: `${compactMeaning} 的画面：别人讲给你听，不如亲眼看他做一遍：`,
+          storyText: `这个行为就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+        {
+          leadText: `记 ${compactMeaning}，就想象一个动作在你眼前发生，`,
+          storyText: `那个动作就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: `什么是 ${compactMeaning}？你盯着看一个人做一件事，`,
+          storyText: `你看到的正是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+      ]);
+    }
+
+    if (isNoun) {
+      return pickVariant(seed, [
+        {
+          leadText: `怎么记 ${compactMeaning}？一个东西放在你面前，你一眼就认出来了，`,
+          storyText: `它就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: `${compactMeaning} 的画面：不用翻解释，看到它的样子你就明白了，`,
+          storyText: `这就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+        {
+          leadText: `说起 ${compactMeaning}，就是一个你能指得出来的东西，`,
+          storyText: `它就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+        },
+        {
+          leadText: `${compactMeaning} 怎么记？把它想成一个具体的存在，`,
+          storyText: `它就是${compactMeaning}，`,
+          echoText: `${word}，`,
+          wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+        },
+      ]);
+    }
+
     return pickVariant(seed, [
       {
-        leadText: `先抓中文义项：${compactMeaning}，`,
-        storyText: `画面只服务：${compactMeaning}，`,
-        echoText: `${word}，`,
-        wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
-      },
-      {
-        leadText: `${word} 不靠空想，`,
-        storyText: `直接对上：${compactMeaning}，`,
+        leadText: `怎么记 ${compactMeaning}？一个清晰的画面闪过眼前，`,
+        storyText: `它就对应着${compactMeaning}，`,
         echoText: `${word}，`,
         wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
       },
       {
-        leadText: `这一轮只记 ${word} 的核心意思，`,
-        storyText: `马上想到：${compactMeaning}，`,
+        leadText: `${compactMeaning} 的画面：你亲眼看到一件事发生，`,
+        storyText: `那个瞬间就是${compactMeaning}，`,
         echoText: `${word}，`,
-        wrapStoryText: `所以：${word}，核心是${compactMeaning}。`,
+        wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+      },
+      {
+        leadText: `说到 ${compactMeaning}，脑子里立刻有一个场景，`,
+        storyText: `它只指向一件事：${compactMeaning}，`,
+        echoText: `${word}，`,
+        wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
+      },
+      {
+        leadText: `记 ${compactMeaning} 最好的办法，就是把它放进一个画面，`,
+        storyText: `画面里只有一件事：${compactMeaning}，`,
+        echoText: `${word}，`,
+        wrapStoryText: `所以：${word}，记住${compactMeaning}。`,
+      },
+      {
+        leadText: `${compactMeaning} 这个词，把它和一个画面焊在一起，`,
+        storyText: `那个画面就是${compactMeaning}，`,
+        echoText: `${word}，`,
+        wrapStoryText: `所以：${word}，就是${compactMeaning}。`,
       },
     ]);
   };

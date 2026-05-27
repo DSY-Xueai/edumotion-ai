@@ -380,7 +380,7 @@ describe("checkEnglishVideoQuality", () => {
           {
             id: "seg-2:1",
             segmentId: "seg-2",
-            text: "今天要记的单词是 abide。",
+            text: "所以：abide，就是忍受并遵守。",
             startMs: 2000,
             endMs: 5000,
           },
@@ -404,7 +404,7 @@ describe("checkEnglishVideoQuality", () => {
           {
             id: "seg-2:1",
             segmentId: "seg-2",
-            text: "今天要记的单词是 abide。",
+            text: "所以：abide，就是忍受并遵守。",
             startMs: 2000,
             endMs: 5000,
           },
@@ -428,7 +428,7 @@ describe("checkEnglishVideoQuality", () => {
               {
                 id: "seg-2:1",
                 segmentId: "seg-2",
-                text: "今天要记的单词是 abide。",
+                text: "所以：abide，就是忍受并遵守。",
                 startMs: 2000,
                 endMs: 5000,
               },

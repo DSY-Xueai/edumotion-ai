@@ -6,9 +6,17 @@
 - 英语草稿生成已加强记忆句语义约束：场景动作必须能直接证明中文义项，避免“没人碰/放在那里/不再继续就是...”这类弱解释
 - 英语研究数据会用 `cmu-pronouncing-dictionary` 补齐词库缺失音标，并转成 IPA；英语质量检查包含 `phonetic`、`word-entrance-cue` 和 `mnemonic-grounding`
 - 英文发音段独立走 TTS，字幕层按音频 cue 对齐显示；用户可审阅视频继续要求真实 TTS，不使用 mock audio
-- `english-word-00001` 已按新页面重新生成并通过英语质量检查；`english-word-00002` 保留此前恢复后的单词课预览；`english-word-00003` 已按新音标补齐、新语义约束文案和当前单词滚入效果重新生成并通过英语质量检查；`english-word-00004` 已作为音标修复测试样片生成并通过英语质量检查；`english-word-00005` 到 `english-word-00020` 的旧产物仍处于已删除状态，等待后续批量生成
+- `english-word-00001` 已按新页面重新生成并通过英语质量检查；`english-word-00002` 保留此前恢复后的单词课预览；`english-word-00003` 已按新音标补齐、新语义约束文案和当前单词滚入效果重新生成并通过英语质量检查；`english-word-00004` 已作为音标修复测试样片生成并通过英语质量检查；`english-word-00005`、`english-word-00006` 已按新流水线生成并通过英语质量检查；`english-word-00007` 已按新流水线生成并通过英语质量检查；`english-word-00008` 到 `english-word-00020` 的旧产物仍处于已删除状态，等待后续批量生成
 
 # 本轮变更
+- 修复字幕/音频对齐策略：`buildSubtitleTrack` 不再对 TTS chunk 按标点二次估算拆分，字幕只使用真实 TTS chunk 边界；`splitNarrationText` 会在送 TTS 前拆分带问号的软断点句和较长句，避免生成超过 6 秒的真实长 cue
+- mock provider `buildEnglishDraft` 扩展语义分类：新增 14 组词义类别，每组 2~5 个场景变体；新增词性感知兜底；所有 leadText 用 `${compactMeaning}`（中文释义）而非 `${word}`（英文原词），避免中英混合文本导致中文 TTS 跳过嵌入的英文词
+- `checkEnglishVideoQuality` 的 `hasGroundedMnemonicCopy` 新增空壳复读拦截：检测"先抓中文义项""不靠空想""这一轮只记.*核心意思""画面只服务""直接对上"等元指令模式，命中直接判定 `mnemonic-grounding` 失败
+- 修复英语视频中英混合 TTS 漏读/弱读问题：`qwen-local` 普通旁白恢复为整句/真实分句中文 TTS，不再把嵌入英文词拆成独立 English 音频；独立发音词段在本地 Qwen fallback 下改用中文模式读英文词，避免 `able` 这类短词在 Qwen English 模式下生成低音量长段；英语视频多段 TTS 仍顺序合成，避免本地 Qwen 服务半挂
+- 修复 Qwen TTS 偶发内部长停顿：新增 `compressInternalSilenceFromWav`，在每个本地 Qwen TTS 分片首尾裁剪后压缩超过约 180ms 的内部低噪声静音，仅保留约 100ms，避免文案中间出现“等一下才继续说”的延迟感；字幕和渲染时间继续使用处理后的真实音频时长
+- `english-word-00007`（单词：able）已按内部静音压缩修复重新生成，并通过英语质量检查；新视频有 AAC 音轨，音量检查为 mean_volume -24.8 dB / max_volume -7.7 dB，总时长 21804ms；`compare-lead` 从修复前 8480ms 降至 7079ms，原 0.83s 级长停顿已压到约 0.20s 自然短停顿；独立 `able` 发音段为 1040ms
+- 更新 `docs/english-video-quality.md`：补充“普通旁白不要把嵌入英文强拆成 English TTS，避免漏读/弱读”和“Qwen 内部长停顿要通过音频后处理压缩”的质量经验；同时移除与当前实现冲突的普通旁白硬 cap 和本地 Qwen 必须使用英文音标提示的旧表述
+- `checkEnglishVideoQuality` 新增 `audio-segment-quality` 检查：逐段验证每个 TTS 音频文件可解码、音量正常（max_volume > -45dB）、实际时长与 manifest 记录匹配（误差 ≤15% 且 ≤200ms）；用于拦截 TTS 偶发故障导至的静音/损坏/截断音频段
 - 新增 `englishPhonetics`：词库没有音标时，从 CMU Pronouncing Dictionary 读取 ARPABET 并转成 IPA，例如 `abbreviation -> /əˌbriːviˈeɪʃən/`
 - `createResearchProvider` 和英文发音 TTS 提示共用补齐后的音标，避免研究稿、页面和发音提示各走一套数据
 - 更新 `checkEnglishVideoQuality`，新增 `phonetic` 检查，要求 approved lesson 和 render payload 都有音标；同时保留 `mnemonic-grounding` 和 `word-entrance-cue`
@@ -19,6 +27,9 @@
 - `english-word-00001` 页面预览截图：`workspace/videos/2026-5-7/02/english-word-00001/render/preview-3s.png`
 - `english-word-00003` 最新视频路径：`workspace/videos/2026-5-24/01/english-word-00003/render/video.mp4`
 - `english-word-00004` 最新视频路径：`workspace/videos/2026-5-24/02/english-word-00004/render/video.mp4`
+- `english-word-00005` 最新视频路径：`workspace/videos/2026-5-26/01/english-word-00005/render/video.mp4`
+- `english-word-00006` 最新视频路径：`workspace/videos/2026-5-26/02/english-word-00006/render/video.mp4`
+- `english-word-00007` 最新视频路径：`workspace/videos/2026-5-27/02/english-word-00007/render/video.mp4`
 
 # 关键文件
 - `src/lib/curriculum/englishPhonetics.ts`
@@ -37,7 +48,9 @@
 - `workspace/videos/2026-5-24/02/english-word-00004/approved/lesson.json`
 - `docs/english-video-quality.md`
 - `src/cli/commands/quality.ts`
+- `src/lib/audio/buildSubtitleTrack.ts`
 - `src/lib/audio/wav.ts`
+- `tests/audio/wav.test.ts`
 - `curriculum/pep-2019/english/wordbank.json`
 
 # 运行入口
@@ -49,6 +62,12 @@
 - `TTS_PROVIDER=qwen-local npm run cli -- quality english --topic-id english-word-00001`
 - `TTS_PROVIDER=qwen-local npm run cli -- quality english --topic-id english-word-00003`
 - `TTS_PROVIDER=qwen-local npm run cli -- quality english --topic-id english-word-00004`
+- `TTS_PROVIDER=qwen-local npm run cli -- produce render --topic-id english-word-00005`
+- `TTS_PROVIDER=qwen-local npm run cli -- quality english --topic-id english-word-00005`
+- `TTS_PROVIDER=qwen-local npm run cli -- produce render --topic-id english-word-00006`
+- `TTS_PROVIDER=qwen-local npm run cli -- quality english --topic-id english-word-00006`
+- `TTS_PROVIDER=qwen-local npm run cli -- produce render --topic-id english-word-00007`
+- `TTS_PROVIDER=qwen-local npm run cli -- quality english --topic-id english-word-00007`
 - `npm test`
 - `npm run lint:types`
 

@@ -1,9 +1,12 @@
 import type { TtsProvider } from "../audio/ttsProvider";
 import { splitNarrationText } from "../audio/splitNarrationText";
-import { clipWavToDuration, concatenateWavFiles, trimSilenceFromWav } from "../audio/wav";
+import {
+  clipWavToDuration,
+  compressInternalSilenceFromWav,
+  concatenateWavFiles,
+  trimSilenceFromWav,
+} from "../audio/wav";
 import type { TtsChunkTiming } from "../audio/schema";
-import { resolveEnglishPhonetic } from "../curriculum/englishPhonetics";
-import { readEnglishWordbank } from "../curriculum/englishWordbank";
 import { readProviderConfig } from "./config";
 import { ensureQwenTtsCloneServer } from "./ensureQwenTtsCloneServer";
 
@@ -228,30 +231,26 @@ const createMockWavBytes = (durationMs: number) => {
 const isEnglishPronunciationSegment = (topicId: string, segment: { kind: string }) =>
   topicId.startsWith("english-") && segment.kind === "pronunciation";
 
-const pronunciationInstruction =
-  "Pronounce the single English word naturally and clearly using standard English pronunciation, and do not use Chinese reading rules.";
 const maxEnglishPronunciationDurationMs = 2500;
-const maxEnglishSegmentDurationMs = 5500;
 
-let englishWordbankCache: ReturnType<typeof readEnglishWordbank> | null = null;
+const buildQwenPronunciationFallbackInstruction = (word: string) =>
+  `只清楚读出这个英文单词 ${word}，一次即可，不要添加解释。`;
 
-const getEnglishWordbank = () =>
-  (englishWordbankCache ??= readEnglishWordbank());
-
-const buildPronunciationInstruction = async (topicId: string, word: string) => {
-  const wordbank = await getEnglishWordbank();
-  const entry = wordbank.entries.find((item) => item.id === topicId);
-  const phonetic = resolveEnglishPhonetic({
-    word,
-    sourcePhonetic: entry?.phonetic,
-  });
-
-  if (phonetic) {
-    return `Pronounce the single English word ${word} as ${phonetic}. Speak only the word once in a clean studio voice. Use standard English pronunciation only, and do not use Chinese reading rules, filler, echo, humming, or extra commentary.`;
-  }
-
-  return `${pronunciationInstruction} Speak only the word once in a clean studio voice. The word is ${word}.`;
-};
+const buildQwenTextParts = ({
+  text,
+  language,
+  instruct,
+}: {
+  text: string;
+  language: string;
+  instruct?: string;
+}) =>
+  splitNarrationText(text).map((textPart) => ({
+    text: textPart,
+    spokenText: textPart,
+    language,
+    instruct,
+  }));
 
 const capEnglishVideoSegment = <T extends {
   audioFile: { extension: string; data: Uint8Array<ArrayBuffer> };
@@ -261,10 +260,11 @@ const capEnglishVideoSegment = <T extends {
   result: T,
   segment: { kind: string; text: string },
 ): T => {
-  const maxDurationMs =
-    segment.kind === "pronunciation"
-      ? maxEnglishPronunciationDurationMs
-      : maxEnglishSegmentDurationMs;
+  if (segment.kind !== "pronunciation") {
+    return result;
+  }
+
+  const maxDurationMs = maxEnglishPronunciationDurationMs;
 
   if (
     result.audioFile.extension !== "wav" ||
@@ -380,7 +380,11 @@ const synthesizeQwenLocalSegment = async ({
   language?: string;
   instruct?: string;
 }) => {
-  const textParts = splitNarrationText(segment.text);
+  const textParts = buildQwenTextParts({
+    text: segment.text,
+    language,
+    instruct,
+  });
   const audioFiles: Uint8Array<ArrayBuffer>[] = [];
   const chunks: TtsChunkTiming[] = [];
   let currentStartMs = 0;
@@ -394,10 +398,10 @@ const synthesizeQwenLocalSegment = async ({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          text: textPart,
+          text: textPart.spokenText,
           speaker: config.QWEN_TTS_SPEAKER,
-          language,
-          instruct,
+          language: textPart.language,
+          instruct: textPart.instruct,
           ...qwenGenerationOptions(config),
         }),
       },
@@ -413,12 +417,17 @@ const synthesizeQwenLocalSegment = async ({
 
     const audioBytes: Uint8Array<ArrayBuffer> = new Uint8Array(await response.arrayBuffer());
     const trimmed = trimSilenceFromWav(audioBytes);
-    const durationMs = trimmed.durationMs;
+    const compressed = compressInternalSilenceFromWav(trimmed.bytes);
+    const audio =
+      textPart.language === "English" && compressed.durationMs > maxEnglishPronunciationDurationMs
+        ? clipWavToDuration(compressed.bytes, maxEnglishPronunciationDurationMs)
+        : { bytes: compressed.bytes, durationMs: compressed.durationMs };
+    const durationMs = audio.durationMs;
     const endMs = currentStartMs + durationMs;
 
-    audioFiles.push(trimmed.bytes);
+    audioFiles.push(audio.bytes);
     chunks.push({
-      text: textPart,
+      text: textPart.text,
       startMs: currentStartMs,
       endMs,
     });
@@ -447,26 +456,36 @@ export const createTtsProvider = (): TtsProvider => {
         await ensureQwenReady();
 
         if (segments.some((segment) => isEnglishPronunciationSegment(topicId, segment))) {
-          return Promise.all(
-            segments.map((segment) =>
-              (isEnglishPronunciationSegment(topicId, segment)
-                ? config.OPENAI_API_KEY
-                  ? synthesizeOpenAISpeechSegment({ config, text: segment.text }).then((result) =>
-                      capEnglishVideoSegment(result, segment),
-                    )
-                  : synthesizeQwenLocalSegment({
-                      config,
-                      segment,
-                      language: "English",
-                      instruct: pronunciationInstruction,
-                    }).then((result) => capEnglishVideoSegment(result, segment))
-                : synthesizeQwenLocalSegment({ config, segment }).then((result) =>
-                    topicId.startsWith("english-")
-                      ? capEnglishVideoSegment(result, segment)
-                      : result,
-                  )),
-            ),
-          );
+          const results = [];
+
+          for (const segment of segments) {
+            if (isEnglishPronunciationSegment(topicId, segment)) {
+              const result = config.OPENAI_API_KEY
+                ? await synthesizeOpenAISpeechSegment({ config, text: segment.text })
+                : await synthesizeQwenLocalSegment({
+                    config,
+                    segment,
+                    language: config.QWEN_TTS_LANGUAGE,
+                    instruct: buildQwenPronunciationFallbackInstruction(segment.text),
+                  });
+
+              results.push(capEnglishVideoSegment(result, segment));
+              continue;
+            }
+
+            const result = await synthesizeQwenLocalSegment({
+              config,
+              segment,
+            });
+
+            results.push(
+              topicId.startsWith("english-")
+                ? capEnglishVideoSegment(result, segment)
+                : result,
+            );
+          }
+
+          return results;
         }
 
         const response = await fetch(
@@ -527,18 +546,20 @@ export const createTtsProvider = (): TtsProvider => {
         }
 
         if (isEnglishPronunciationSegment(topicId, segment)) {
-          const instruct = await buildPronunciationInstruction(topicId, segment.text);
           const result = await synthesizeQwenLocalSegment({
             config,
             segment,
-            language: "English",
-            instruct,
+            language: config.QWEN_TTS_LANGUAGE,
+            instruct: buildQwenPronunciationFallbackInstruction(segment.text),
           });
 
           return capEnglishVideoSegment(result, segment);
         }
 
-        const result = await synthesizeQwenLocalSegment({ config, segment });
+        const result = await synthesizeQwenLocalSegment({
+          config,
+          segment,
+        });
 
         return topicId.startsWith("english-")
           ? capEnglishVideoSegment(result, segment)

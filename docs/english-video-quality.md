@@ -5,12 +5,19 @@
 - For visual-only checks, label the output as mock-audio. For reviewable videos, use `TTS_PROVIDER=qwen-local` or another real TTS provider.
 - Keep mock audio available for tests and visual-only previews, but treat it as a quality-check failure for reviewable videos.
 
+## TTS speech reliability
+- Do not split embedded English words out of normal Chinese narration just to avoid mixed-language text. For English vocabulary videos, ordinary narration should stay in Chinese/default TTS chunks, so short embedded words such as `able` do not become unstable standalone English-mode clips.
+- Only the pronunciation segment should be treated as a standalone word-reading segment. With local Qwen fallback, prefer a Chinese instruction that asks it to clearly read the single English word once; Qwen English mode can weak-read or stretch very short words.
+- Every real preview must pass per-segment audio checks: each TTS file must decode, have audible volume, and match the manifest duration. A segment that is technically present but near-silent should be treated as a failed preview.
+- If a subtitle line appears but the voice is missing, weak, or skipped, inspect the source TTS segment first. Do not hide the problem by changing learner-facing copy or by accepting mock/near-silent audio.
+
 ## Pacing
 - Avoid standalone ultra-short Chinese TTS segments such as `怎么记？`; local TTS may stretch them into long pauses.
+- Qwen may insert long internal pauses inside a valid WAV, especially around spaces, punctuation, question prompts, and mixed Chinese/English narration. Generated TTS chunks should run through internal silence compression so long waits are shortened while natural short pauses remain.
 - English-video subtitles must use learner-facing vocabulary-lesson copy, for example `一秒钟记一个单词。今天要记的单词是 X，意思是...`.
 - Never expose batch/order/debug wording in subtitles, including `第2个词`, `第 N 个单词`, topic ids, render indexes, or other internal placeholders. The viewer should hear the lesson, not the pipeline.
 - Keep Chinese narration segments short, but do not remove the target word from learner-facing subtitle sentences just to avoid TTS issues.
-- Cap English-video audio segments defensively: pronunciation should stay within 2.5 seconds, and other single segments should stay below the 6-second subtitle threshold.
+- Cap only pronunciation segments defensively. For ordinary narration, prevent long subtitle exposure by splitting before TTS and by using the real processed audio chunk timings, not by clipping spoken content.
 - Keep English vocabulary videos around 20 seconds unless the user asks for a longer lesson.
 - Check generated `audio/manifest.json` for unexpectedly long single cues before sharing a preview.
 
@@ -27,7 +34,7 @@
 - Every English vocabulary card must show a phonetic cue. The approved lesson and render payload should both carry `phonetic`.
 - The CET source wordbank often omits phonetics. When the source value is missing, the mock research provider resolves the word through `cmu-pronouncing-dictionary` and converts CMU ARPABET to IPA.
 - Treat the generated IPA as a North American pronunciation fallback. For words outside CMU or words that need a specific UK pronunciation, add a verified source phonetic instead of leaving the card blank.
-- The pronunciation-only TTS segment should use the same resolved phonetic when available, so the spoken word and visible cue stay aligned.
+- The visible phonetic cue and the spoken word should stay aligned. If a provider can reliably use phonetic hints, use the resolved phonetic; if local Qwen weak-reads short English words in English mode, use the stable single-word fallback instruction instead.
 
 ## Mnemonic copy
 - Mnemonics must explain or guide the target meaning. The problem is not a specific sentence being forbidden; the problem is copy that could apply to any word and does not help the viewer understand this word.
@@ -40,8 +47,9 @@
 
 ## Verification
 - Run `npm run cli -- quality english --topic-id <topic-id>` before sharing an English preview video.
-- The quality command checks audio provider, phonetic presence, rendered audio track, volume, duration, subtitle cue duration, render/audio manifest consistency, word-entrance cue alignment, and whether mnemonic-only copy both explains and logically supports the current word meaning.
+- The quality command checks audio provider, phonetic presence, rendered audio track, video volume, per-segment audio decodability/volume/duration, total duration, subtitle cue duration, render/audio manifest consistency, word-entrance cue alignment, and whether mnemonic-only copy both explains and logically supports the current word meaning.
 - Before batch generation, inspect at least one approved English script and confirm it contains learner-facing cadence, not internal order labels.
 - Before saying a video has sound, verify the rendered MP4 audio stream with `ffprobe`.
 - When possible, run `ffmpeg -af volumedetect` to confirm non-silent audio.
+- When pacing sounds delayed, run `ffmpeg -af silencedetect` on the affected WAV segment. Long internal pauses are a TTS-generation/audio-postprocessing issue, not a Remotion scheduling issue, if render `audioTracks` are continuous.
 - Keep regression tests for draft copy and mock preview pacing when changing English video generation.
