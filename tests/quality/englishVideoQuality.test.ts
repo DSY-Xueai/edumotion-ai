@@ -9,6 +9,62 @@ const writeJson = async (targetPath: string, value: unknown) => {
   await writeFile(targetPath, JSON.stringify(value, null, 2), "utf8");
 };
 
+const createToneWav = ({
+  durationMs = 1000,
+  amplitude = 9000,
+}: {
+  durationMs?: number;
+  amplitude?: number;
+}) => {
+  const sampleRate = 16000;
+  const bytesPerSample = 2;
+  const sampleCount = Math.max(1, Math.round((durationMs / 1000) * sampleRate));
+  const dataSize = sampleCount * bytesPerSample;
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+  let offset = 0;
+  const writeString = (value: string) => {
+    for (let index = 0; index < value.length; index += 1) {
+      view.setUint8(offset, value.charCodeAt(index));
+      offset += 1;
+    }
+  };
+
+  writeString("RIFF");
+  view.setUint32(offset, 36 + dataSize, true);
+  offset += 4;
+  writeString("WAVE");
+  writeString("fmt ");
+  view.setUint32(offset, 16, true);
+  offset += 4;
+  view.setUint16(offset, 1, true);
+  offset += 2;
+  view.setUint16(offset, 1, true);
+  offset += 2;
+  view.setUint32(offset, sampleRate, true);
+  offset += 4;
+  view.setUint32(offset, sampleRate * bytesPerSample, true);
+  offset += 4;
+  view.setUint16(offset, bytesPerSample, true);
+  offset += 2;
+  view.setUint16(offset, 16, true);
+  offset += 2;
+  writeString("data");
+  view.setUint32(offset, dataSize, true);
+  offset += 4;
+
+  for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
+    view.setInt16(
+      offset,
+      Math.round(Math.sin((2 * Math.PI * 220 * sampleIndex) / sampleRate) * amplitude),
+      true,
+    );
+    offset += 2;
+  }
+
+  return new Uint8Array(buffer);
+};
+
 const baseApprovedLesson = {
   topicId: "english-word-quality",
   subject: "english",
@@ -45,6 +101,7 @@ const baseApprovedLesson = {
 const baseAudioManifest = {
   topicId: "english-word-quality",
   version: 1,
+  ttsProvider: "qwen-local",
   generatedAt: "2026-05-12T00:00:00.000Z",
   segments: [
     {
@@ -146,7 +203,10 @@ describe("checkEnglishVideoQuality", () => {
 
     const topicRoot = path.join(workspaceRoot, "english-word-quality");
     await writeJson(path.join(topicRoot, "approved", "lesson.json"), baseApprovedLesson);
-    await writeJson(path.join(topicRoot, "audio", "manifest.json"), baseAudioManifest);
+    await writeJson(path.join(topicRoot, "audio", "manifest.json"), {
+      ...baseAudioManifest,
+      ttsProvider: "mock",
+    });
     await writeJson(path.join(topicRoot, "render", "render-package.json"), baseRenderPackage);
 
     const result = await checkEnglishVideoQuality({
@@ -503,6 +563,294 @@ describe("checkEnglishVideoQuality", () => {
     expect(result.checks).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: "phonetic", ok: false }),
+      ]),
+    );
+  });
+
+  it("rejects subtitle timing that is too short to speak the full script line", async () => {
+    const workspaceRoot = path.join(process.cwd(), ".tmp-quality-fast-timing");
+    vi.stubEnv("TOPIC_WORKSPACE_ROOT", workspaceRoot);
+
+    const topicRoot = path.join(workspaceRoot, "english-word-quality");
+    await writeJson(path.join(topicRoot, "approved", "lesson.json"), {
+      ...baseApprovedLesson,
+      approvedScript: [
+        {
+          id: "seg-1",
+          kind: "definition",
+          text: "今天要记的单词是 absence，意思是：缺席，不存在，缺乏。",
+        },
+      ],
+      approvedStoryboard: [
+        { id: "scene-1", type: "definition", segmentIds: ["seg-1"], durationSec: 3 },
+      ],
+      sourceSummary: {
+        ...baseApprovedLesson.sourceSummary,
+        canonicalTitle: "absence",
+        phonetic: "/ˈæbsəns/",
+        definitions: ["缺席", "不存在", "缺乏"],
+      },
+    });
+    await writeJson(path.join(topicRoot, "audio", "manifest.json"), {
+      ...baseAudioManifest,
+      segments: [
+        {
+          segmentId: "seg-1",
+          kind: "definition",
+          text: "今天要记的单词是 absence，意思是：缺席，不存在，缺乏。",
+          audioPath: "audio/seg-1.wav",
+          durationMs: 1600,
+          chunks: [
+            {
+              text: "今天要记的单词是 absence，意思是：缺席，不存在，缺乏。",
+              startMs: 0,
+              endMs: 1600,
+            },
+          ],
+        },
+      ],
+      subtitleTrack: {
+        cues: [
+          {
+            id: "seg-1:1",
+            segmentId: "seg-1",
+            text: "今天要记的单词是 absence，意思是：缺席，不存在，缺乏。",
+            startMs: 0,
+            endMs: 1600,
+          },
+        ],
+      },
+      totalDurationMs: 1600,
+    });
+    await writeJson(path.join(topicRoot, "render", "render-package.json"), {
+      ...baseRenderPackage,
+      canonicalTitle: "absence",
+      totalDurationMs: 1600,
+      subtitleTrack: {
+        ...baseRenderPackage.subtitleTrack,
+        cues: [
+          {
+            id: "seg-1:1",
+            segmentId: "seg-1",
+            text: "今天要记的单词是 absence，意思是：缺席，不存在，缺乏。",
+            startMs: 0,
+            endMs: 1600,
+          },
+        ],
+      },
+      scenes: [
+        {
+          ...baseRenderPackage.scenes[0],
+          payload: {
+            word: "absence",
+            phonetic: "/ˈæbsəns/",
+            meaning: "缺席",
+            segmentIds: ["seg-1"],
+            subtitleCues: [
+              {
+                id: "seg-1:1",
+                segmentId: "seg-1",
+                text: "今天要记的单词是 absence，意思是：缺席，不存在，缺乏。",
+                startMs: 0,
+                endMs: 1600,
+              },
+            ],
+          },
+        },
+      ],
+      durationInFrames: 48,
+    });
+
+    const result = await checkEnglishVideoQuality({
+      topicId: "english-word-quality",
+      inspectMedia: false,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "audio-text-timing", ok: false }),
+      ]),
+    );
+  });
+
+  it("rejects literal Unicode escape text in approved render payloads", async () => {
+    const workspaceRoot = path.join(process.cwd(), ".tmp-quality-copy-encoding");
+    vi.stubEnv("TOPIC_WORKSPACE_ROOT", workspaceRoot);
+
+    const topicRoot = path.join(workspaceRoot, "english-word-quality");
+    await writeJson(path.join(topicRoot, "approved", "lesson.json"), {
+      ...baseApprovedLesson,
+      approvedScript: [
+        { id: "seg-1", kind: "definition", text: "今天要记的单词是 above，意思是：在上方。" },
+        { id: "seg-2", kind: "wrap", text: "记住 above：位\\u7f6在上方。" },
+      ],
+      sourceSummary: {
+        ...baseApprovedLesson.sourceSummary,
+        canonicalTitle: "above",
+        phonetic: "/əˈbʌv/",
+        definitions: ["在上方"],
+      },
+    });
+    await writeJson(path.join(topicRoot, "audio", "manifest.json"), baseAudioManifest);
+    await writeJson(path.join(topicRoot, "render", "render-package.json"), {
+      ...baseRenderPackage,
+      canonicalTitle: "above",
+      totalDurationMs: 9000,
+      scenes: [
+        {
+          ...baseRenderPackage.scenes[0],
+          payload: {
+            word: "above",
+            phonetic: "/əˈbʌv/",
+            meaning: "在上方",
+            subtitleCues: [
+              {
+                id: "seg-2:1",
+                segmentId: "seg-2",
+                text: "记住 above：位\\u7f6在上方。",
+                startMs: 0,
+                endMs: 2000,
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    const result = await checkEnglishVideoQuality({
+      topicId: "english-word-quality",
+      inspectMedia: false,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "copy-encoding", ok: false }),
+      ]),
+    );
+  });
+
+  it("fails closed when visual quality inspection cannot inspect rendered frames", async () => {
+    const workspaceRoot = path.join(process.cwd(), ".tmp-quality-visual-fail");
+    vi.stubEnv("TOPIC_WORKSPACE_ROOT", workspaceRoot);
+    vi.stubEnv("TTS_PROVIDER", "qwen-local");
+
+    const topicRoot = path.join(workspaceRoot, "english-word-quality");
+    await writeJson(path.join(topicRoot, "approved", "lesson.json"), {
+      ...baseApprovedLesson,
+      approvedScript: [
+        { id: "seg-1", kind: "hook", text: "一秒钟记一个单词。" },
+        {
+          id: "seg-2",
+          kind: "definition",
+          text: "今天要记的单词是 aboard，意思是：上船。",
+        },
+        {
+          id: "seg-3",
+          kind: "compare",
+          text: "人从岸边跨上船，脚已经站到甲板里。",
+        },
+        { id: "seg-4", kind: "wrap", text: "所以：aboard，就是上船。" },
+      ],
+      sourceSummary: {
+        ...baseApprovedLesson.sourceSummary,
+        canonicalTitle: "aboard",
+        phonetic: "/əˈbɔrd/",
+        definitions: ["上船"],
+      },
+    });
+    await writeJson(path.join(topicRoot, "audio", "manifest.json"), {
+      ...baseAudioManifest,
+      totalDurationMs: 20000,
+    });
+    await writeJson(path.join(topicRoot, "render", "render-package.json"), {
+      ...baseRenderPackage,
+      canonicalTitle: "aboard",
+      totalDurationMs: 20000,
+      scenes: [
+        {
+          ...baseRenderPackage.scenes[0],
+          payload: {
+            word: "aboard",
+            phonetic: "/əˈbɔrd/",
+            subtitleCues: [
+              { text: "今天要记的单词是 aboard，意思是：上船。" },
+            ],
+          },
+        },
+      ],
+    });
+
+    const result = await checkEnglishVideoQuality({
+      topicId: "english-word-quality",
+      inspectMedia: true,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "visual-media-readable", ok: false }),
+      ]),
+    );
+  });
+
+  it("rejects real audio segments that are technically present but too quiet to use", async () => {
+    const workspaceRoot = path.join(process.cwd(), ".tmp-quality-quiet-audio");
+    vi.stubEnv("TOPIC_WORKSPACE_ROOT", workspaceRoot);
+
+    const topicRoot = path.join(workspaceRoot, "english-word-quality");
+    await writeJson(path.join(topicRoot, "approved", "lesson.json"), {
+      ...baseApprovedLesson,
+      sourceSummary: {
+        ...baseApprovedLesson.sourceSummary,
+        phonetic: "/əˈbaɪd/",
+      },
+    });
+    await writeJson(path.join(topicRoot, "audio", "manifest.json"), {
+      ...baseAudioManifest,
+      segments: [
+        {
+          ...baseAudioManifest.segments[0],
+          audioPath: "audio/seg-1.wav",
+        },
+        {
+          ...baseAudioManifest.segments[1],
+          audioPath: "audio/seg-2.wav",
+        },
+      ],
+    });
+    await writeFile(
+      path.join(topicRoot, "audio", "seg-1.wav"),
+      createToneWav({ durationMs: 2000, amplitude: 9000 }),
+    );
+    await writeFile(
+      path.join(topicRoot, "audio", "seg-2.wav"),
+      createToneWav({ durationMs: 7000, amplitude: 900 }),
+    );
+    await writeJson(path.join(topicRoot, "render", "render-package.json"), {
+      ...baseRenderPackage,
+      totalDurationMs: 9000,
+      scenes: [
+        {
+          ...baseRenderPackage.scenes[0],
+          payload: {
+            word: "abide",
+            phonetic: "/əˈbaɪd/",
+            subtitleCues: baseRenderPackage.subtitleTrack.cues,
+          },
+        },
+      ],
+    });
+
+    const result = await checkEnglishVideoQuality({
+      topicId: "english-word-quality",
+      inspectMedia: true,
+    });
+
+    expect(result.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "audio-segment-quality", ok: false }),
       ]),
     );
   });

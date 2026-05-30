@@ -11,11 +11,13 @@ export const runTopicToDraft = async ({
   topicId,
   researchProvider,
   draftProvider,
+  promptContext,
   updatedAt = new Date().toISOString(),
 }: {
   topicId: string;
   researchProvider?: ResearchProvider;
   draftProvider?: DraftProvider;
+  promptContext?: string;
   updatedAt?: string;
 }) => {
   await writeTopicManifest({
@@ -38,6 +40,7 @@ export const runTopicToDraft = async ({
     topicId,
     research,
     provider: resolvedDraftProvider,
+    promptContext,
   });
   await writeTopicManifest({
     topicId,

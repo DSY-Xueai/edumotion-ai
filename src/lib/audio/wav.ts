@@ -23,6 +23,12 @@ type CompressedWav = {
   compressed: boolean;
 };
 
+type NormalizedWav = {
+  bytes: Uint8Array<ArrayBuffer>;
+  durationMs: number;
+  normalized: boolean;
+};
+
 const readAscii = (view: DataView, offset: number, length: number) => {
   let value = "";
 
@@ -387,6 +393,72 @@ export const compressInternalSilenceFromWav = (
     durationMs,
     removedMs: info.durationMs - durationMs,
     compressed: true,
+  };
+};
+
+export const normalizeWavPeak = (
+  bytes: Uint8Array<ArrayBuffer>,
+  {
+    targetPeakDb = -9,
+  }: {
+    targetPeakDb?: number;
+  } = {},
+): NormalizedWav => {
+  const info = readWavInfo(bytes);
+
+  if (info.bitsPerSample !== 16) {
+    return {
+      bytes,
+      durationMs: info.durationMs,
+      normalized: false,
+    };
+  }
+
+  const input = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let maxAbs = 0;
+
+  for (
+    let offset = info.dataOffset;
+    offset < info.dataOffset + info.dataSize;
+    offset += 2
+  ) {
+    maxAbs = Math.max(maxAbs, Math.abs(input.getInt16(offset, true)));
+  }
+
+  const targetPeak = Math.round(32767 * 10 ** (targetPeakDb / 20));
+  if (maxAbs === 0 || maxAbs >= targetPeak) {
+    return {
+      bytes,
+      durationMs: info.durationMs,
+      normalized: false,
+    };
+  }
+
+  const output = new Uint8Array(bytes);
+  const outputView = new DataView(
+    output.buffer,
+    output.byteOffset,
+    output.byteLength,
+  );
+  const scale = targetPeak / maxAbs;
+
+  for (
+    let offset = info.dataOffset;
+    offset < info.dataOffset + info.dataSize;
+    offset += 2
+  ) {
+    const scaled = Math.round(input.getInt16(offset, true) * scale);
+    outputView.setInt16(
+      offset,
+      Math.max(-32768, Math.min(32767, scaled)),
+      true,
+    );
+  }
+
+  return {
+    bytes: output,
+    durationMs: info.durationMs,
+    normalized: true,
   };
 };
 

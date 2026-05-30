@@ -66,6 +66,7 @@ describe("buildRenderPackage", () => {
       audioManifest: {
         topicId: "topic-1",
         version: 1,
+        ttsProvider: "mock",
         generatedAt: "2026-04-26T12:00:00.000Z",
         totalDurationMs: 4200,
         segments: [

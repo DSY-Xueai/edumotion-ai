@@ -53,6 +53,54 @@ const seedApprovedTopic = async (topicId: string) => {
   await approveDraft({ topicId, reviewNotes: ["通过"] });
 };
 
+const seedApprovedEnglishTopic = async (topicId: string) => {
+  await saveResearch({
+    topicId,
+    scope: "topic",
+    canonicalTitle: "about",
+    phonetic: "/about/",
+    definitions: ["关于"],
+    formulas: ["/about/"],
+    principles: ["prep."],
+    examples: ["关于"],
+    misconceptions: [],
+    prerequisites: [],
+    nextConnections: [],
+    visualizationHints: ["word card"],
+    sources: [
+      {
+        title: "Manual",
+        url: "https://example.com/manual",
+        sourceType: "reference",
+        publisher: "Manual",
+        retrievedAt: "2026-05-29",
+        quoteOrSummary: "summary",
+      },
+    ],
+  });
+  await saveDraft({
+    topicId,
+    toneProfile: "english-vocabulary-card",
+    durationTargetSec: 20,
+    hook: "one word",
+    summary: "about",
+    scriptSegments: [
+      { id: "seg-1", kind: "definition", text: "about means 关于" },
+      { id: "seg-2", kind: "compare", text: "a talk is 关于 one topic" },
+    ],
+    storyboardScenes: [
+      { id: "scene-1", type: "definition", segmentIds: ["seg-1", "seg-2"], durationSec: 20 },
+    ],
+    subtitleDraft: [
+      { id: "sub-1", segmentId: "seg-1", text: "about means 关于" },
+      { id: "sub-2", segmentId: "seg-2", text: "a talk is 关于 one topic" },
+    ],
+    visualPlan: ["word card"],
+    qaNotes: [],
+  });
+  await approveDraft({ topicId, reviewNotes: ["approved"] });
+};
+
 describe("runApprovedToRender", () => {
   it("rejects final render when runtime would fall back to mock tone audio", async () => {
     process.env.PIPELINE_PROVIDER_MODE = "mock";
@@ -73,6 +121,7 @@ describe("runApprovedToRender", () => {
     const renderPackage = await runApprovedToRender({
       topicId,
       ttsProvider: {
+        name: "mock",
         synthesizeSegment: async ({ segment }) => ({
           audioFile: {
             extension: "txt",
@@ -90,5 +139,49 @@ describe("runApprovedToRender", () => {
     expect(renderPackage.topicId).toBe(topicId);
     expect(renderPackage.scenes).toHaveLength(2);
     expect(manifest.status).toBe("rendered");
+  });
+
+  it("rejects overlong English audio before rendering a unusable video", async () => {
+    const topicId = "english-word-render-overlong";
+    await seedApprovedEnglishTopic(topicId);
+
+    await expect(
+      runApprovedToRender({
+        topicId,
+        ttsProvider: {
+          name: "mock",
+          synthesizeSegment: async ({ segment }) => ({
+            audioFile: {
+              extension: "txt",
+              data: new Uint8Array([1, 2, 3]),
+            },
+            durationMs: segment.id === "seg-1" ? 31_000 : 1200,
+            chunks: [{ text: segment.text, startMs: 0, endMs: segment.id === "seg-1" ? 31_000 : 1200 }],
+          }),
+        },
+      }),
+    ).rejects.toThrow(/English audio duration exceeds/);
+  });
+
+  it("rejects English audio that is too short to contain the full script line", async () => {
+    const topicId = "english-word-render-truncated";
+    await seedApprovedEnglishTopic(topicId);
+
+    await expect(
+      runApprovedToRender({
+        topicId,
+        ttsProvider: {
+          name: "mock",
+          synthesizeSegment: async ({ segment }) => ({
+            audioFile: {
+              extension: "txt",
+              data: new Uint8Array([1, 2, 3]),
+            },
+            durationMs: segment.id === "seg-1" ? 700 : 1200,
+            chunks: [{ text: segment.text, startMs: 0, endMs: segment.id === "seg-1" ? 700 : 1200 }],
+          }),
+        },
+      }),
+    ).rejects.toThrow(/too short for its script text/);
   });
 });

@@ -269,6 +269,8 @@ describe("createTtsProvider", () => {
     vi.stubEnv("QWEN_TTS_BASE_URL", "http://127.0.0.1:8020");
     vi.stubEnv("QWEN_TTS_SPEAKER", "Vivian");
     vi.stubEnv("QWEN_TTS_AUTO_START", "false");
+    vi.stubEnv("QWEN_TTS_MAX_NEW_TOKENS", "96");
+    vi.stubEnv("QWEN_TTS_REQUEST_TIMEOUT_MS", "30000");
 
     const fetchMock = vi
       .fn<typeof fetch>()
@@ -297,6 +299,15 @@ describe("createTtsProvider", () => {
       "http://127.0.0.1:8020/v1/audio/speech",
       "http://127.0.0.1:8020/v1/audio/speech",
     ]);
+    expect(
+      fetchMock.mock.calls.map((call) =>
+        JSON.parse(String((call[1] as RequestInit).body)),
+      ),
+    ).toEqual([
+      expect.objectContaining({ max_new_tokens: 96 }),
+      expect.objectContaining({ max_new_tokens: 96 }),
+    ]);
+    expect(fetchMock.mock.calls.every((call) => (call[1] as RequestInit).signal)).toBe(true);
     expect(result.durationMs).toBe(1200);
     expect(result.chunks).toEqual([
       { text: "先看平抛运动。", startMs: 0, endMs: 500 },
@@ -341,6 +352,7 @@ describe("createTtsProvider", () => {
       do_sample: false,
       temperature: 0.2,
       top_p: 0.8,
+      max_new_tokens: 96,
     });
     expect(results?.map((result) => result.durationMs)).toEqual([400, 600]);
     expect(results?.map((result) => result.chunks[0]?.text)).toEqual(["先看平抛运动。", "水平方向匀速，竖直自由落体。"]);

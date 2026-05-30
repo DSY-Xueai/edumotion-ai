@@ -72,6 +72,7 @@ export const generateSegmentAudio = async ({
   const manifest = audioManifestSchema.parse({
     topicId,
     version: 1,
+    ttsProvider: provider.name,
     generatedAt,
     segments,
     subtitleTrack,

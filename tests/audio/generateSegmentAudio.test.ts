@@ -80,6 +80,7 @@ describe("generateSegmentAudio", () => {
       topicId,
       generatedAt,
       provider: {
+        name: "mock",
         synthesizeSegment: async ({ segment }) => {
           synthesizedSegments.push(segment.id);
 
@@ -244,6 +245,7 @@ describe("generateSegmentAudio", () => {
     const manifest = await generateSegmentAudio({
       topicId,
       provider: {
+        name: "mock",
         synthesizeSegment: async ({ segment }) => {
           singleCalls.push(segment.id);
           throw new Error("single synthesis should not be used");

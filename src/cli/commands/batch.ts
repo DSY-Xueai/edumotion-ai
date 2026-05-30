@@ -1,4 +1,6 @@
 import { getNextRunnableTopic } from "../../lib/pipeline/getNextRunnableTopic";
+import { resolveEnglishBatchTopics } from "../../lib/pipeline/englishBatch/resolveEnglishBatchTopics";
+import { runEnglishBatchQueueWithDefaults } from "../../lib/pipeline/englishBatch/runEnglishBatchQueue";
 import { runBatch } from "../../lib/pipeline/runBatch";
 
 const readOptions = (args: string[], name: string) =>
@@ -10,7 +12,50 @@ const readOptions = (args: string[], name: string) =>
     return values;
   }, []);
 
+const readOption = (args: string[], name: string) => {
+  const index = args.indexOf(name);
+
+  return index === -1 ? undefined : args[index + 1];
+};
+
+const readPositiveIntegerOption = (args: string[], name: string) => {
+  const raw = readOption(args, name);
+
+  if (!raw) {
+    throw new Error(`Missing ${name}`);
+  }
+
+  const value = Number(raw);
+
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`${name} must be a positive integer`);
+  }
+
+  return value;
+};
+
 export const handleBatchAction = async (action: string, args: string[]) => {
+  if (action === "english") {
+    const topicIds = resolveEnglishBatchTopics({
+      from: readOption(args, "--from"),
+      to: readOption(args, "--to"),
+      topicIds: readOptions(args, "--topic-id"),
+    });
+    const targetPassed = readPositiveIntegerOption(args, "--target");
+    const report = await runEnglishBatchQueueWithDefaults({
+      topicIds,
+      targetPassed,
+    });
+
+    console.log(JSON.stringify(report, null, 2));
+
+    if (report.passed < targetPassed) {
+      process.exitCode = 1;
+    }
+
+    return;
+  }
+
   if (action === "run") {
     const topicIds = readOptions(args, "--topic-id");
     const allowMockAudio = args.includes("--allow-mock-audio");

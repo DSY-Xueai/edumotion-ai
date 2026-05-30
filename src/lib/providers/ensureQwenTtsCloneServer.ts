@@ -131,6 +131,13 @@ export const ensureQwenTtsCloneServer = async (config: ProviderConfig) => {
       const child = spawn(python, args, {
         cwd: process.cwd(),
         detached: true,
+        env: {
+          ...process.env,
+          PYTHONPATH: [
+            process.cwd(),
+            process.env.PYTHONPATH,
+          ].filter(Boolean).join(path.delimiter),
+        },
         stdio: ["ignore", stdoutHandle.fd, stderrHandle.fd],
       });
       child.unref();

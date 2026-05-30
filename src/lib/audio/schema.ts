@@ -16,6 +16,8 @@ export const synthesizedAudioFileSchema = z.object({
   data: z.instanceof(Uint8Array),
 });
 
+export const ttsProviderNameSchema = z.enum(["mock", "openai", "qwen-local"]);
+
 export const synthesizedSegmentSchema = z.object({
   audioFile: synthesizedAudioFileSchema,
   durationMs: z.number().int().positive(),
@@ -57,6 +59,7 @@ export const audioSegmentManifestSchema = z.object({
 export const audioManifestSchema = z.object({
   topicId: z.string().min(1),
   version: z.literal(1),
+  ttsProvider: ttsProviderNameSchema,
   generatedAt: z.string().min(1),
   segments: z.array(audioSegmentManifestSchema).min(1),
   subtitleTrack: subtitleTrackSchema,
@@ -65,6 +68,7 @@ export const audioManifestSchema = z.object({
 
 export type TtsChunkTiming = z.infer<typeof ttsChunkTimingSchema>;
 export type SynthesizedAudioFile = z.infer<typeof synthesizedAudioFileSchema>;
+export type TtsProviderName = z.infer<typeof ttsProviderNameSchema>;
 export type SynthesizedSegment = z.infer<typeof synthesizedSegmentSchema>;
 export type SubtitleTrackSourceSegment = z.infer<
   typeof subtitleTrackSourceSegmentSchema

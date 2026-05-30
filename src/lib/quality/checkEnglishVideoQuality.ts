@@ -2,13 +2,16 @@ import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import { estimateMinimumSpeechDurationMs } from "../audio/estimateSpeechTiming";
 import { audioManifestSchema } from "../audio/schema";
-import { readProviderConfig, resolveEffectiveTtsMode } from "../providers/config";
 import { renderPackageSchema, type RenderPackage } from "../rendering/schema";
 import { approvedLessonSchema } from "../review/schema";
 import { getTopicWorkspace } from "../workspace/getTopicWorkspace";
+import { checkEnglishAsrCoverage } from "./checkEnglishAsrCoverage";
+import { checkEnglishVisualQuality } from "./checkEnglishVisualQuality";
 
 const execFileAsync = promisify(execFile);
+const minimumUsableMaxVolumeDb = -24;
 
 export type EnglishQualityCheck = {
   id: string;
@@ -207,6 +210,9 @@ const phoneticIssues = ({
   return issues;
 };
 
+const hasLiteralEscapeText = (value: unknown) =>
+  /[\\](?:u[0-9a-fA-F]{2,6}|x[0-9a-fA-F]{2})/u.test(JSON.stringify(value));
+
 const inspectAudioStream = async (videoPath: string) => {
   const { stdout } = await execFileAsync("ffprobe", [
     "-v",
@@ -244,14 +250,44 @@ const inspectVolume = async (videoPath: string) => {
   };
 };
 
+const inspectWindowVolume = async ({
+  videoPath,
+  startMs,
+  durationMs,
+}: {
+  videoPath: string;
+  startMs: number;
+  durationMs: number;
+}) => {
+  const { stderr } = await execFileAsync("ffmpeg", [
+    "-hide_banner",
+    "-ss",
+    (startMs / 1000).toFixed(3),
+    "-t",
+    (durationMs / 1000).toFixed(3),
+    "-i",
+    videoPath,
+    "-af",
+    "volumedetect",
+    "-f",
+    "null",
+    "NUL",
+  ]);
+  const meanMatch = stderr.match(/mean_volume:\s*(-?\d+(?:\.\d+)?) dB/u);
+  const maxMatch = stderr.match(/max_volume:\s*(-?\d+(?:\.\d+)?) dB/u);
+
+  return {
+    meanVolumeDb: meanMatch ? Number(meanMatch[1]) : undefined,
+    maxVolumeDb: maxMatch ? Number(maxMatch[1]) : undefined,
+  };
+};
+
 export const checkEnglishVideoQuality = async ({
   topicId,
   inspectMedia = true,
-  env = process.env,
 }: {
   topicId: string;
   inspectMedia?: boolean;
-  env?: Record<string, string | undefined>;
 }): Promise<EnglishQualityResult> => {
   const workspace = getTopicWorkspace(topicId);
   const approvedLesson = await readJson(
@@ -266,8 +302,6 @@ export const checkEnglishVideoQuality = async ({
     path.join(workspace, "render", "render-package.json"),
     (value) => renderPackageSchema.parse(value),
   );
-  const config = readProviderConfig(env);
-  const effectiveTtsMode = resolveEffectiveTtsMode(config);
   const checks: EnglishQualityCheck[] = [];
 
   checks.push({
@@ -282,15 +316,24 @@ export const checkEnglishVideoQuality = async ({
 
   checks.push({
     id: "audio-provider",
-    ok: effectiveTtsMode !== "mock",
+    ok: audioManifest.ttsProvider !== "mock",
     message:
-      effectiveTtsMode === "mock"
+      audioManifest.ttsProvider === "mock"
         ? "Mock audio is only allowed for tests or visual-only previews, not reviewable videos."
-        : `Audio provider is ${effectiveTtsMode}.`,
+        : `Audio provider is ${audioManifest.ttsProvider}.`,
     details: {
-      ttsProvider: config.TTS_PROVIDER,
-      effectiveTtsMode,
+      ttsProvider: audioManifest.ttsProvider,
     },
+  });
+
+  checks.push({
+    id: "copy-encoding",
+    ok: !hasLiteralEscapeText({
+      approvedScript: approvedLesson.approvedScript,
+      subtitleTrack: renderPackage.subtitleTrack,
+      scenes: renderPackage.scenes,
+    }),
+    message: "Script, subtitles, and visual payload must not contain literal Unicode escape text.",
   });
 
   const missingPhonetics = phoneticIssues({
@@ -334,6 +377,54 @@ export const checkEnglishVideoQuality = async ({
       text: cue.text,
       durationMs: cue.endMs - cue.startMs,
     })),
+  });
+
+  const segmentKindById = new Map(
+    audioManifest.segments.map((segment) => [segment.segmentId, segment.kind] as const),
+  );
+  const shortSpeechTimings = [
+    ...audioManifest.segments
+      .map((segment) => {
+        const minimumDurationMs = estimateMinimumSpeechDurationMs({
+          text: segment.text,
+          kind: segment.kind,
+        });
+
+        return {
+          id: segment.segmentId,
+          scope: "segment",
+          text: segment.text,
+          durationMs: segment.durationMs,
+          minimumDurationMs,
+        };
+      })
+      .filter((item) => item.durationMs < item.minimumDurationMs),
+    ...renderPackage.subtitleTrack.cues
+      .map((cue) => {
+        const kind = segmentKindById.get(cue.segmentId);
+        const minimumDurationMs = estimateMinimumSpeechDurationMs({
+          text: cue.text,
+          kind,
+        });
+
+        return {
+          id: cue.id,
+          scope: "subtitle-cue",
+          text: cue.text,
+          durationMs: cue.endMs - cue.startMs,
+          minimumDurationMs,
+        };
+      })
+      .filter((item) => item.durationMs < item.minimumDurationMs),
+  ];
+  checks.push({
+    id: "audio-text-timing",
+    ok: shortSpeechTimings.length === 0,
+    message:
+      shortSpeechTimings.length === 0
+        ? "Audio and subtitle timings are long enough for their script text."
+        : "One or more audio/subtitle timings are too short for the script text, so narration may be cut off before the next line.",
+    details: shortSpeechTimings,
   });
 
   const scriptText = mnemonicScriptText(approvedLesson.approvedScript);
@@ -429,8 +520,8 @@ export const checkEnglishVideoQuality = async ({
         ]);
         const maxMatch = stderr.match(/max_volume:\s*(-?\d+(?:\.\d+)?) dB/u);
         const maxVolumeDb = maxMatch ? Number(maxMatch[1]) : undefined;
-        if (maxVolumeDb === undefined || !Number.isFinite(maxVolumeDb) || maxVolumeDb <= -45) {
-          segmentIssues.push({ segmentId: segment.segmentId, audioPath: segment.audioPath, reason: `Audio is near-silent or unreadable (max_volume: ${maxVolumeDb ?? "missing"} dB).` });
+        if (maxVolumeDb === undefined || !Number.isFinite(maxVolumeDb) || maxVolumeDb <= minimumUsableMaxVolumeDb) {
+          segmentIssues.push({ segmentId: segment.segmentId, audioPath: segment.audioPath, reason: `Audio is too quiet or unreadable (max_volume: ${maxVolumeDb ?? "missing"} dB).` });
         }
       } catch {
         segmentIssues.push({ segmentId: segment.segmentId, audioPath: segment.audioPath, reason: "Cannot measure audio volume." });
@@ -446,6 +537,23 @@ export const checkEnglishVideoQuality = async ({
     });
 
     const videoPath = path.join(workspace, "render", "video.mp4");
+    const visualResult = await checkEnglishVisualQuality({
+      videoPath,
+      renderPackage,
+    });
+    checks.push(...visualResult.checks);
+    const videoFramesReadable =
+      visualResult.checks.find((check) => check.id === "visual-media-readable")
+        ?.ok === true;
+
+    if (!videoFramesReadable) {
+      return {
+        topicId,
+        ok: false,
+        checks,
+      };
+    }
+
     try {
       const hasAudio = await inspectAudioStream(videoPath);
       checks.push({
@@ -461,6 +569,49 @@ export const checkEnglishVideoQuality = async ({
         details: error instanceof Error ? error.message : String(error),
       });
     }
+
+    const cueVolumeIssues = [];
+    for (const cue of renderPackage.subtitleTrack.cues) {
+      try {
+        const durationMs = cue.endMs - cue.startMs;
+        const volume = await inspectWindowVolume({
+          videoPath,
+          startMs: cue.startMs,
+          durationMs,
+        });
+
+        if (
+          volume.maxVolumeDb === undefined ||
+          !Number.isFinite(volume.maxVolumeDb) ||
+          volume.maxVolumeDb <= minimumUsableMaxVolumeDb
+        ) {
+          cueVolumeIssues.push({
+            id: cue.id,
+            text: cue.text,
+            startMs: cue.startMs,
+            endMs: cue.endMs,
+            ...volume,
+          });
+        }
+      } catch (error) {
+        cueVolumeIssues.push({
+          id: cue.id,
+          text: cue.text,
+          startMs: cue.startMs,
+          endMs: cue.endMs,
+          reason: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    checks.push({
+      id: "video-cue-volume",
+      ok: cueVolumeIssues.length === 0,
+      message:
+        cueVolumeIssues.length === 0
+          ? "Every subtitle cue window in the rendered video has usable audio volume."
+          : "One or more subtitle cue windows in the rendered video are too quiet or silent.",
+      details: cueVolumeIssues,
+    });
 
     try {
       const volume = await inspectVolume(videoPath);
@@ -482,6 +633,13 @@ export const checkEnglishVideoQuality = async ({
         details: error instanceof Error ? error.message : String(error),
       });
     }
+
+    checks.push(
+      await checkEnglishAsrCoverage({
+        videoPath,
+        renderPackage,
+      }),
+    );
   }
 
   return {

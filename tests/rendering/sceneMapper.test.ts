@@ -34,6 +34,7 @@ describe("mapScenesForRender", () => {
       audioManifest: {
         topicId: "topic-1",
         version: 1,
+        ttsProvider: "mock",
         generatedAt: "2026-04-26T12:00:00.000Z",
         totalDurationMs: 3500,
         segments: [
@@ -198,6 +199,7 @@ describe("mapScenesForRender", () => {
         audioManifest: {
           topicId: "topic-1",
           version: 1,
+          ttsProvider: "mock",
           generatedAt: "2026-04-26T12:00:00.000Z",
           totalDurationMs: 800,
           segments: [

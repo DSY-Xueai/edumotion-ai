@@ -24,6 +24,7 @@ class SpeechRequest(BaseModel):
     do_sample: bool = False
     temperature: float = 0.2
     top_p: float = 0.8
+    max_new_tokens: int = Field(default=96, gt=0)
 
 
 class BatchSpeechItem(BaseModel):
@@ -40,6 +41,7 @@ class BatchSpeechRequest(BaseModel):
     do_sample: bool = False
     temperature: float = 0.2
     top_p: float = 0.8
+    max_new_tokens: int = Field(default=96, gt=0)
 
 
 def generation_kwargs(request: SpeechRequest | BatchSpeechRequest) -> dict[str, Any]:
@@ -47,6 +49,7 @@ def generation_kwargs(request: SpeechRequest | BatchSpeechRequest) -> dict[str, 
         "do_sample": request.do_sample,
         "temperature": request.temperature,
         "top_p": request.top_p,
+        "max_new_tokens": request.max_new_tokens,
     }
 
 

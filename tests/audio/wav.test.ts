@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   compressInternalSilenceFromWav,
+  normalizeWavPeak,
   readWavInfo,
   trimSilenceFromWav,
 } from "../../src/lib/audio/wav";
@@ -12,6 +13,7 @@ const createToneWav = ({
   secondToneMs = 0,
   trailSilenceMs = 0,
   silenceAmplitude = 0,
+  toneAmplitude = 9000,
 }: {
   leadSilenceMs?: number;
   toneMs?: number;
@@ -19,6 +21,7 @@ const createToneWav = ({
   secondToneMs?: number;
   trailSilenceMs?: number;
   silenceAmplitude?: number;
+  toneAmplitude?: number;
 }) => {
   const sampleRate = 16000;
   const bytesPerSample = 2;
@@ -72,7 +75,7 @@ const createToneWav = ({
       timeMs >= secondToneStartMs && timeMs < secondToneStartMs + secondToneMs;
     const withinTone = withinFirstTone || withinSecondTone;
     const amplitude = withinTone
-      ? Math.round(Math.sin((2 * Math.PI * 220 * sampleIndex) / sampleRate) * 9000)
+      ? Math.round(Math.sin((2 * Math.PI * 220 * sampleIndex) / sampleRate) * toneAmplitude)
       : silenceAmplitude;
 
     view.setInt16(offset, amplitude, true);
@@ -93,6 +96,28 @@ describe("trimSilenceFromWav", () => {
     expect(trimmed.durationMs).toBeLessThan(700);
     expect(trimmed.durationMs).toBeGreaterThan(450);
     expect(readWavInfo(trimmed.bytes).durationMs).toBe(trimmed.durationMs);
+  });
+});
+
+describe("normalizeWavPeak", () => {
+  it("raises very quiet wav audio to the requested peak level", () => {
+    const quiet = createToneWav({ toneAmplitude: 800 });
+    const normalized = normalizeWavPeak(quiet, { targetPeakDb: -9 });
+    const info = readWavInfo(normalized.bytes);
+    const view = new DataView(
+      normalized.bytes.buffer,
+      normalized.bytes.byteOffset,
+      normalized.bytes.byteLength,
+    );
+    let maxAbs = 0;
+
+    for (let offset = info.dataOffset; offset < info.dataOffset + info.dataSize; offset += 2) {
+      maxAbs = Math.max(maxAbs, Math.abs(view.getInt16(offset, true)));
+    }
+
+    expect(normalized.normalized).toBe(true);
+    expect(maxAbs).toBeGreaterThan(10_000);
+    expect(readWavInfo(normalized.bytes).durationMs).toBe(info.durationMs);
   });
 });
 

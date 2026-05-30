@@ -92,6 +92,18 @@ describe("readProviderConfig", () => {
     });
   });
 
+  it("defaults local Qwen requests to bounded generation and a finite timeout", () => {
+    expect(
+      readProviderConfig({
+        PIPELINE_PROVIDER_MODE: "mock",
+        TTS_PROVIDER: "qwen-local",
+      }),
+    ).toMatchObject({
+      QWEN_TTS_MAX_NEW_TOKENS: 96,
+      QWEN_TTS_REQUEST_TIMEOUT_MS: 120000,
+    });
+  });
+
   it("inspects provider runtime requirements without throwing", () => {
     expect(
       inspectProviderConfig({

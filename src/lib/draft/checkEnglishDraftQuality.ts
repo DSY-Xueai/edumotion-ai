@@ -25,8 +25,27 @@ export const checkEnglishDraftQuality = ({
   research: TopicResearch;
 }) => {
   const issues: string[] = [];
+  const allDraftText = [
+    draft.hook,
+    draft.summary,
+    ...draft.scriptSegments.map((segment) => segment.text),
+    ...draft.subtitleDraft.map((subtitle) => subtitle.text),
+    ...draft.visualPlan,
+  ].join("\n");
   const scriptText = mnemonicScriptText(draft);
   const primaryTokens = splitMeaningTokens(research.definitions).slice(0, 2);
+
+  if (/[?？]{3,}/u.test(allDraftText)) {
+    issues.push(
+      "Draft copy contains replacement-marker text, which usually means the Chinese script was corrupted before TTS.",
+    );
+  }
+
+  if (/[\\](?:u[0-9a-fA-F]{2,6}|x[0-9a-fA-F]{2})/u.test(allDraftText)) {
+    issues.push(
+      "Draft copy contains literal escape text, which usually means Unicode was not decoded before TTS.",
+    );
+  }
 
   for (const token of primaryTokens) {
     if (!scriptText.includes(token)) {

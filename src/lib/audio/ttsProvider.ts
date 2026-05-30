@@ -1,5 +1,6 @@
 import type { ScriptSegment } from "../draft/schema";
 import type { SynthesizedSegment } from "./schema";
+import type { TtsProviderName } from "./schema";
 
 export type SynthesizeSegmentInput = {
   topicId: string;
@@ -12,6 +13,7 @@ export type SynthesizeSegmentsInput = {
 };
 
 export interface TtsProvider {
+  name: TtsProviderName;
   synthesizeSegment(
     input: SynthesizeSegmentInput,
   ): Promise<SynthesizedSegment>;

@@ -1,6 +1,47 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { probeRuntimeProvider } from "../../src/lib/providers/probeRuntimeProvider";
 
+const createSilentWav = (durationMs: number) => {
+  const sampleRate = 16000;
+  const bytesPerSample = 2;
+  const sampleCount = Math.max(1, Math.round((durationMs / 1000) * sampleRate));
+  const dataSize = sampleCount * bytesPerSample;
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+  let offset = 0;
+
+  const writeString = (value: string) => {
+    for (let index = 0; index < value.length; index += 1) {
+      view.setUint8(offset, value.charCodeAt(index));
+      offset += 1;
+    }
+  };
+
+  writeString("RIFF");
+  view.setUint32(offset, 36 + dataSize, true);
+  offset += 4;
+  writeString("WAVE");
+  writeString("fmt ");
+  view.setUint32(offset, 16, true);
+  offset += 4;
+  view.setUint16(offset, 1, true);
+  offset += 2;
+  view.setUint16(offset, 1, true);
+  offset += 2;
+  view.setUint32(offset, sampleRate, true);
+  offset += 4;
+  view.setUint32(offset, sampleRate * bytesPerSample, true);
+  offset += 4;
+  view.setUint16(offset, bytesPerSample, true);
+  offset += 2;
+  view.setUint16(offset, 16, true);
+  offset += 2;
+  writeString("data");
+  view.setUint32(offset, dataSize, true);
+
+  return new Uint8Array(buffer);
+};
+
 describe("probeRuntimeProvider", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -21,6 +62,32 @@ describe("probeRuntimeProvider", () => {
       healthy: true,
       checks: {
         structuredOutput: "mock-ready",
+      },
+    });
+  });
+
+  it("still probes local Qwen TTS when structured output is in mock mode", async () => {
+    vi.stubEnv("PIPELINE_PROVIDER_MODE", "mock");
+    vi.stubEnv("TTS_PROVIDER", "qwen-local");
+    vi.stubEnv("QWEN_TTS_AUTO_START", "false");
+
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(() =>
+      Promise.resolve(new Response(createSilentWav(900), {
+        status: 200,
+        headers: { "content-type": "audio/wav" },
+      })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await probeRuntimeProvider({ includeTts: true });
+
+    expect(fetchMock).toHaveBeenCalled();
+    expect(result).toMatchObject({
+      providerMode: "mock",
+      healthy: true,
+      checks: {
+        structuredOutput: "mock-ready",
+        tts: "ok",
       },
     });
   });

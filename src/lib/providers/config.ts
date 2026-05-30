@@ -25,6 +25,12 @@ const baseEnvSchema = z.object({
     .transform((value) => value === "true"),
   QWEN_TTS_TEMPERATURE: z.coerce.number().positive().default(0.2),
   QWEN_TTS_TOP_P: z.coerce.number().positive().max(1).default(0.8),
+  QWEN_TTS_MAX_NEW_TOKENS: z.coerce.number().int().positive().default(96),
+  QWEN_TTS_REQUEST_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(120_000),
   QWEN_TTS_AUTO_START: z
     .enum(["true", "false"])
     .default("true")

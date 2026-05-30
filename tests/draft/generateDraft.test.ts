@@ -2,6 +2,7 @@ import { access } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { generateDraft } from "../../src/lib/draft/generateDraft";
+import { checkEnglishDraftQuality } from "../../src/lib/draft/checkEnglishDraftQuality";
 import { readDraft } from "../../src/lib/draft/readDraft";
 import { createDraftProvider } from "../../src/lib/providers/createDraftProvider";
 import type { TopicResearch } from "../../src/lib/research/schema";
@@ -9,6 +10,7 @@ import { getTopicWorkspace } from "../../src/lib/workspace/getTopicWorkspace";
 
 describe("generateDraft", () => {
   it("creates a lesson draft with script segments and storyboard scenes", async () => {
+    let receivedPromptContext = "";
     const draft = await generateDraft({
       topicId: "math-b1-ch1-topic-001",
       research: {
@@ -26,7 +28,10 @@ describe("generateDraft", () => {
         sources: [],
       },
       provider: {
-        createDraft: async () => ({
+        createDraft: async ({ promptContext }) => {
+          receivedPromptContext = promptContext;
+
+          return {
           toneProfile: "humorous-clear",
           durationTargetSec: 75,
           hook: "先别急着背定义",
@@ -47,13 +52,16 @@ describe("generateDraft", () => {
           ],
           visualPlan: ["关键词高亮"],
           qaNotes: [],
-        }),
+        };
+        },
       },
+      promptContext: "custom draft context",
     });
 
     const storedDraft = await readDraft("math-b1-ch1-topic-001");
 
     expect(draft.storyboardScenes[0]?.type).toBe("hook");
+    expect(receivedPromptContext).toBe("custom draft context");
     expect(storedDraft.topicId).toBe("math-b1-ch1-topic-001");
     await expect(
       access(
@@ -135,5 +143,87 @@ describe("generateDraft", () => {
     expect(allText).not.toContain("参考系");
     expect(allText).not.toContain("位置随时间");
     expect(allText).not.toContain("物质分类");
+  });
+});
+
+describe("checkEnglishDraftQuality", () => {
+  it("rejects replacement-marker copy before TTS can amplify corrupted text", () => {
+    const quality = checkEnglishDraftQuality({
+      draft: {
+        toneProfile: "english-vocabulary-card",
+        durationTargetSec: 20,
+        hook: "?????????",
+        summary: "about",
+        scriptSegments: [
+          { id: "seg-hook", kind: "hook", text: "?????????" },
+          { id: "seg-definition", kind: "definition", text: "???????? about???????????" },
+          { id: "seg-compare", kind: "compare", text: "???????????????????????????" },
+        ],
+        storyboardScenes: [
+          { id: "scene-definition", type: "definition", segmentIds: ["seg-hook", "seg-definition", "seg-compare"], durationSec: 20 },
+        ],
+        subtitleDraft: [],
+        visualPlan: [],
+        qaNotes: [],
+      },
+      research: {
+        topicId: "english-word-00014",
+        scope: "topic",
+        canonicalTitle: "about",
+        phonetic: "/əˈbaʊt/",
+        definitions: ["关于；大约"],
+        formulas: [],
+        principles: [],
+        examples: [],
+        misconceptions: [],
+        prerequisites: [],
+        nextConnections: [],
+        visualizationHints: [],
+        sources: [],
+      },
+    });
+
+    expect(quality.ok).toBe(false);
+    expect(quality.issues).toContain("Draft copy contains replacement-marker text, which usually means the Chinese script was corrupted before TTS.");
+  });
+
+  it("rejects literal Unicode escape copy before TTS", () => {
+    const quality = checkEnglishDraftQuality({
+      draft: {
+        toneProfile: "english-vocabulary-card",
+        durationTargetSec: 20,
+        hook: "one word",
+        summary: "above",
+        scriptSegments: [
+          { id: "seg-definition", kind: "definition", text: "above means 在上方" },
+          { id: "seg-compare", kind: "compare", text: "位置在上方，就是 above。" },
+          { id: "seg-wrap", kind: "wrap", text: "记住 above：位\\u7f6在上方。" },
+        ],
+        storyboardScenes: [
+          { id: "scene-definition", type: "definition", segmentIds: ["seg-definition", "seg-compare", "seg-wrap"], durationSec: 20 },
+        ],
+        subtitleDraft: [],
+        visualPlan: [],
+        qaNotes: [],
+      },
+      research: {
+        topicId: "english-word-00015",
+        scope: "topic",
+        canonicalTitle: "above",
+        phonetic: "/əˈbʌv/",
+        definitions: ["在上方"],
+        formulas: [],
+        principles: [],
+        examples: [],
+        misconceptions: [],
+        prerequisites: [],
+        nextConnections: [],
+        visualizationHints: [],
+        sources: [],
+      },
+    });
+
+    expect(quality.ok).toBe(false);
+    expect(quality.issues).toContain("Draft copy contains literal escape text, which usually means Unicode was not decoded before TTS.");
   });
 });

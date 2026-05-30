@@ -38,7 +38,7 @@ export const probeRuntimeProvider = async ({
   const config = readProviderConfig();
 
   if (config.PIPELINE_PROVIDER_MODE === "mock") {
-    return {
+    const result: RuntimeProviderProbe = {
       providerMode: "mock",
       healthy: true,
       checks: {
@@ -48,6 +48,38 @@ export const probeRuntimeProvider = async ({
         "Mock provider is active. Structured lesson generation is available without network access.",
       ],
     };
+
+    if (!includeTts) {
+      return result;
+    }
+
+    if (config.TTS_PROVIDER === "mock") {
+      result.checks.tts = "mock-ready";
+      result.details.push("TTS provider is set to local mock audio fallback.");
+      return result;
+    }
+
+    const ttsProvider = createTtsProvider();
+    const audio = await ttsProvider.synthesizeSegment({
+      topicId: "provider-probe",
+      segment: {
+        id: "provider-probe-seg",
+        kind: "hook",
+        text: "测试运行时 provider",
+      },
+    });
+
+    result.checks.tts = "ok";
+    result.models = {
+      research: config.RESEARCH_MODEL,
+      tts: config.TTS_MODEL,
+      alignment: config.ALIGNMENT_MODEL,
+    };
+    result.details.push(
+      `TTS probe passed with ${audio.audioFile.extension} audio, ${audio.durationMs}ms, ${audio.chunks.length} chunk(s).`,
+    );
+
+    return result;
   }
 
   const structured = await requestStructuredOpenAIOutput<{

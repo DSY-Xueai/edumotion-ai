@@ -4,6 +4,7 @@ import {
   clipWavToDuration,
   compressInternalSilenceFromWav,
   concatenateWavFiles,
+  normalizeWavPeak,
   trimSilenceFromWav,
 } from "../audio/wav";
 import type { TtsChunkTiming } from "../audio/schema";
@@ -87,11 +88,12 @@ const buildQwenSynthesizedSegment = ({
   audioBytes: Uint8Array<ArrayBuffer>;
 }) => {
   const trimmed = trimSilenceFromWav(audioBytes);
+  const normalized = normalizeWavPeak(trimmed.bytes);
 
   return {
     audioFile: {
       extension: "wav",
-      data: trimmed.bytes,
+      data: normalized.bytes,
     },
     durationMs: trimmed.durationMs,
     chunks: [
@@ -127,6 +129,11 @@ const qwenGenerationOptions = (config: ReturnType<typeof readProviderConfig>) =>
   do_sample: config.QWEN_TTS_DO_SAMPLE,
   temperature: config.QWEN_TTS_TEMPERATURE,
   top_p: config.QWEN_TTS_TOP_P,
+  max_new_tokens: config.QWEN_TTS_MAX_NEW_TOKENS,
+});
+
+const qwenFetchOptions = (config: ReturnType<typeof readProviderConfig>) => ({
+  signal: AbortSignal.timeout(config.QWEN_TTS_REQUEST_TIMEOUT_MS),
 });
 
 const mockSceneDurationMs: Record<string, number> = {
@@ -397,6 +404,7 @@ const synthesizeQwenLocalSegment = async ({
         headers: {
           "Content-Type": "application/json",
         },
+        ...qwenFetchOptions(config),
         body: JSON.stringify({
           text: textPart.spokenText,
           speaker: config.QWEN_TTS_SPEAKER,
@@ -418,10 +426,11 @@ const synthesizeQwenLocalSegment = async ({
     const audioBytes: Uint8Array<ArrayBuffer> = new Uint8Array(await response.arrayBuffer());
     const trimmed = trimSilenceFromWav(audioBytes);
     const compressed = compressInternalSilenceFromWav(trimmed.bytes);
-    const audio =
+    const clipped =
       textPart.language === "English" && compressed.durationMs > maxEnglishPronunciationDurationMs
         ? clipWavToDuration(compressed.bytes, maxEnglishPronunciationDurationMs)
         : { bytes: compressed.bytes, durationMs: compressed.durationMs };
+    const audio = normalizeWavPeak(clipped.bytes);
     const durationMs = audio.durationMs;
     const endMs = currentStartMs + durationMs;
 
@@ -452,6 +461,7 @@ export const createTtsProvider = (): TtsProvider => {
 
   if (config.TTS_PROVIDER === "qwen-local") {
     return {
+      name: "qwen-local",
       synthesizeSegments: async ({ topicId, segments }) => {
         await ensureQwenReady();
 
@@ -495,6 +505,7 @@ export const createTtsProvider = (): TtsProvider => {
             headers: {
               "Content-Type": "application/json",
             },
+            ...qwenFetchOptions(config),
             body: JSON.stringify({
               items: segments.map((segment) => ({
                 id: segment.id,
@@ -570,6 +581,7 @@ export const createTtsProvider = (): TtsProvider => {
 
   if (config.TTS_PROVIDER === "openai" && config.PIPELINE_PROVIDER_MODE === "openai") {
     return {
+      name: "openai",
       synthesizeSegment: async ({ segment }) => {
         const speechResponse = await fetch(`${config.OPENAI_BASE_URL}/audio/speech`, {
           method: "POST",
@@ -646,6 +658,7 @@ export const createTtsProvider = (): TtsProvider => {
   }
 
   return {
+    name: "mock",
     synthesizeSegment: async ({ topicId, segment }) => {
       const durationMs = getMockDurationMs({
         topicId,

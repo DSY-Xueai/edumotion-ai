@@ -8,16 +8,18 @@ export const generateDraft = async ({
   topicId,
   research,
   provider,
+  promptContext = research.canonicalTitle,
 }: {
   topicId: string;
   research: TopicResearch;
   provider: DraftProvider;
+  promptContext?: string;
 }): Promise<LessonDraft> => {
   const result = await provider.createDraft({
     topicId,
     research,
     sceneBudgets: defaultSceneBudgets,
-    promptContext: research.canonicalTitle,
+    promptContext,
   });
 
   const draft = lessonDraftSchema.parse({
