@@ -12,6 +12,8 @@ import { checkEnglishVisualQuality } from "./checkEnglishVisualQuality";
 
 const execFileAsync = promisify(execFile);
 const minimumUsableMaxVolumeDb = -24;
+const audioWindowMs = 1000;
+const leadingAudioWindowMs = 800;
 
 export type EnglishQualityCheck = {
   id: string;
@@ -250,12 +252,12 @@ const inspectVolume = async (videoPath: string) => {
   };
 };
 
-const inspectWindowVolume = async ({
-  videoPath,
+const inspectMediaWindowVolume = async ({
+  mediaPath,
   startMs,
   durationMs,
 }: {
-  videoPath: string;
+  mediaPath: string;
   startMs: number;
   durationMs: number;
 }) => {
@@ -266,7 +268,7 @@ const inspectWindowVolume = async ({
     "-t",
     (durationMs / 1000).toFixed(3),
     "-i",
-    videoPath,
+    mediaPath,
     "-af",
     "volumedetect",
     "-f",
@@ -280,6 +282,31 @@ const inspectWindowVolume = async ({
     meanVolumeDb: meanMatch ? Number(meanMatch[1]) : undefined,
     maxVolumeDb: maxMatch ? Number(maxMatch[1]) : undefined,
   };
+};
+
+const volumeIsUsable = (maxVolumeDb: number | undefined) =>
+  maxVolumeDb !== undefined &&
+  Number.isFinite(maxVolumeDb) &&
+  maxVolumeDb > minimumUsableMaxVolumeDb;
+
+const cueWindows = ({
+  startMs,
+  endMs,
+}: {
+  startMs: number;
+  endMs: number;
+}) => {
+  const windows: Array<{ startMs: number; durationMs: number }> = [];
+
+  for (let currentMs = startMs; currentMs < endMs; currentMs += audioWindowMs) {
+    const durationMs = Math.min(audioWindowMs, endMs - currentMs);
+
+    if (durationMs >= 500) {
+      windows.push({ startMs: currentMs, durationMs });
+    }
+  }
+
+  return windows;
 };
 
 export const checkEnglishVideoQuality = async ({
@@ -520,8 +547,22 @@ export const checkEnglishVideoQuality = async ({
         ]);
         const maxMatch = stderr.match(/max_volume:\s*(-?\d+(?:\.\d+)?) dB/u);
         const maxVolumeDb = maxMatch ? Number(maxMatch[1]) : undefined;
-        if (maxVolumeDb === undefined || !Number.isFinite(maxVolumeDb) || maxVolumeDb <= minimumUsableMaxVolumeDb) {
+        if (!volumeIsUsable(maxVolumeDb)) {
           segmentIssues.push({ segmentId: segment.segmentId, audioPath: segment.audioPath, reason: `Audio is too quiet or unreadable (max_volume: ${maxVolumeDb ?? "missing"} dB).` });
+        }
+
+        const leadingDurationMs = Math.min(leadingAudioWindowMs, segment.durationMs);
+        const leadingVolume = await inspectMediaWindowVolume({
+          mediaPath: segmentAudioPath,
+          startMs: 0,
+          durationMs: leadingDurationMs,
+        });
+        if (!volumeIsUsable(leadingVolume.maxVolumeDb)) {
+          segmentIssues.push({
+            segmentId: segment.segmentId,
+            audioPath: segment.audioPath,
+            reason: `Audio starts too quietly or silently (first ${leadingDurationMs}ms max_volume: ${leadingVolume.maxVolumeDb ?? "missing"} dB).`,
+          });
         }
       } catch {
         segmentIssues.push({ segmentId: segment.segmentId, audioPath: segment.audioPath, reason: "Cannot measure audio volume." });
@@ -574,17 +615,13 @@ export const checkEnglishVideoQuality = async ({
     for (const cue of renderPackage.subtitleTrack.cues) {
       try {
         const durationMs = cue.endMs - cue.startMs;
-        const volume = await inspectWindowVolume({
-          videoPath,
+        const volume = await inspectMediaWindowVolume({
+          mediaPath: videoPath,
           startMs: cue.startMs,
           durationMs,
         });
 
-        if (
-          volume.maxVolumeDb === undefined ||
-          !Number.isFinite(volume.maxVolumeDb) ||
-          volume.maxVolumeDb <= minimumUsableMaxVolumeDb
-        ) {
+        if (!volumeIsUsable(volume.maxVolumeDb)) {
           cueVolumeIssues.push({
             id: cue.id,
             text: cue.text,
@@ -592,6 +629,28 @@ export const checkEnglishVideoQuality = async ({
             endMs: cue.endMs,
             ...volume,
           });
+        }
+
+        for (const window of cueWindows({
+          startMs: cue.startMs,
+          endMs: cue.endMs,
+        })) {
+          const windowVolume = await inspectMediaWindowVolume({
+            mediaPath: videoPath,
+            startMs: window.startMs,
+            durationMs: window.durationMs,
+          });
+
+          if (!volumeIsUsable(windowVolume.maxVolumeDb)) {
+            cueVolumeIssues.push({
+              id: cue.id,
+              text: cue.text,
+              startMs: window.startMs,
+              endMs: window.startMs + window.durationMs,
+              reason: "Subtitle cue has a quiet or silent internal audio window.",
+              ...windowVolume,
+            });
+          }
         }
       } catch (error) {
         cueVolumeIssues.push({

@@ -1,8 +1,12 @@
+import { execFile } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { checkEnglishVideoQuality } from "../../src/lib/quality/checkEnglishVideoQuality";
 import { runCli } from "../helpers/runCli";
+
+const execFileAsync = promisify(execFile);
 
 const writeJson = async (targetPath: string, value: unknown) => {
   await mkdir(path.dirname(targetPath), { recursive: true });
@@ -12,9 +16,11 @@ const writeJson = async (targetPath: string, value: unknown) => {
 const createToneWav = ({
   durationMs = 1000,
   amplitude = 9000,
+  silentRangesMs = [],
 }: {
   durationMs?: number;
   amplitude?: number;
+  silentRangesMs?: Array<{ startMs: number; endMs: number }>;
 }) => {
   const sampleRate = 16000;
   const bytesPerSample = 2;
@@ -54,9 +60,17 @@ const createToneWav = ({
   offset += 4;
 
   for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
+    const sampleMs = (sampleIndex / sampleRate) * 1000;
+    const silent = silentRangesMs.some(
+      (range) => sampleMs >= range.startMs && sampleMs < range.endMs,
+    );
     view.setInt16(
       offset,
-      Math.round(Math.sin((2 * Math.PI * 220 * sampleIndex) / sampleRate) * amplitude),
+      silent
+        ? 0
+        : Math.round(
+            Math.sin((2 * Math.PI * 220 * sampleIndex) / sampleRate) * amplitude,
+          ),
       true,
     );
     offset += 2;
@@ -851,6 +865,212 @@ describe("checkEnglishVideoQuality", () => {
     expect(result.checks).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: "audio-segment-quality", ok: false }),
+      ]),
+    );
+  });
+
+  it("rejects real audio segments that start with silence before narration", async () => {
+    const workspaceRoot = path.join(process.cwd(), ".tmp-quality-leading-silence");
+    vi.stubEnv("TOPIC_WORKSPACE_ROOT", workspaceRoot);
+
+    const topicRoot = path.join(workspaceRoot, "english-word-quality");
+    await writeJson(path.join(topicRoot, "approved", "lesson.json"), {
+      ...baseApprovedLesson,
+      sourceSummary: {
+        ...baseApprovedLesson.sourceSummary,
+        phonetic: "/əˈbaɪd/",
+      },
+    });
+    await writeJson(path.join(topicRoot, "audio", "manifest.json"), {
+      ...baseAudioManifest,
+      segments: [
+        {
+          ...baseAudioManifest.segments[0],
+          audioPath: "audio/seg-1.wav",
+          durationMs: 3000,
+          chunks: [{ text: "一秒钟记一个单词。", startMs: 0, endMs: 3000 }],
+        },
+      ],
+      subtitleTrack: {
+        cues: [
+          {
+            id: "seg-1:1",
+            segmentId: "seg-1",
+            text: "一秒钟记一个单词。",
+            startMs: 0,
+            endMs: 3000,
+          },
+        ],
+      },
+      totalDurationMs: 3000,
+    });
+    await writeFile(
+      path.join(topicRoot, "audio", "seg-1.wav"),
+      createToneWav({
+        durationMs: 3000,
+        amplitude: 9000,
+        silentRangesMs: [{ startMs: 0, endMs: 1000 }],
+      }),
+    );
+    await writeJson(path.join(topicRoot, "render", "render-package.json"), {
+      ...baseRenderPackage,
+      totalDurationMs: 3000,
+      subtitleTrack: {
+        ...baseRenderPackage.subtitleTrack,
+        cues: [
+          {
+            id: "seg-1:1",
+            segmentId: "seg-1",
+            text: "一秒钟记一个单词。",
+            startMs: 0,
+            endMs: 3000,
+          },
+        ],
+      },
+      scenes: [
+        {
+          ...baseRenderPackage.scenes[0],
+          payload: {
+            word: "abide",
+            phonetic: "/əˈbaɪd/",
+            subtitleCues: [
+              {
+                id: "seg-1:1",
+                segmentId: "seg-1",
+                text: "一秒钟记一个单词。",
+                startMs: 0,
+                endMs: 3000,
+              },
+            ],
+          },
+        },
+      ],
+      durationInFrames: 90,
+    });
+
+    const result = await checkEnglishVideoQuality({
+      topicId: "english-word-quality",
+      inspectMedia: true,
+    });
+
+    expect(result.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "audio-segment-quality", ok: false }),
+      ]),
+    );
+  });
+
+  it("rejects subtitle cue windows that contain silent gaps inside the rendered video", async () => {
+    const workspaceRoot = path.join(process.cwd(), ".tmp-quality-cue-gap");
+    vi.stubEnv("TOPIC_WORKSPACE_ROOT", workspaceRoot);
+    vi.stubEnv("ASR_WHISPER_COMMAND", "missing-whisper-for-cue-gap-test");
+
+    const topicRoot = path.join(workspaceRoot, "english-word-quality");
+    const audioPath = path.join(topicRoot, "audio", "seg-1.wav");
+    const videoPath = path.join(topicRoot, "render", "video.mp4");
+    await writeJson(path.join(topicRoot, "approved", "lesson.json"), {
+      ...baseApprovedLesson,
+      sourceSummary: {
+        ...baseApprovedLesson.sourceSummary,
+        phonetic: "/əˈbaɪd/",
+      },
+    });
+    await writeJson(path.join(topicRoot, "audio", "manifest.json"), {
+      ...baseAudioManifest,
+      segments: [
+        {
+          ...baseAudioManifest.segments[0],
+          audioPath: "audio/seg-1.wav",
+          durationMs: 3000,
+          chunks: [{ text: "一秒钟记一个单词。", startMs: 0, endMs: 3000 }],
+        },
+      ],
+      subtitleTrack: {
+        cues: [
+          {
+            id: "seg-1:1",
+            segmentId: "seg-1",
+            text: "一秒钟记一个单词。",
+            startMs: 0,
+            endMs: 3000,
+          },
+        ],
+      },
+      totalDurationMs: 3000,
+    });
+    await writeFile(
+      audioPath,
+      createToneWav({
+        durationMs: 3000,
+        amplitude: 9000,
+        silentRangesMs: [{ startMs: 1000, endMs: 2000 }],
+      }),
+    );
+    await mkdir(path.dirname(videoPath), { recursive: true });
+    await execFileAsync("ffmpeg", [
+      "-y",
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-f",
+      "lavfi",
+      "-i",
+      "color=c=white:s=1080x1920:r=30:d=3",
+      "-i",
+      audioPath,
+      "-shortest",
+      "-c:v",
+      "libx264",
+      "-pix_fmt",
+      "yuv420p",
+      "-c:a",
+      "aac",
+      videoPath,
+    ]);
+    await writeJson(path.join(topicRoot, "render", "render-package.json"), {
+      ...baseRenderPackage,
+      totalDurationMs: 3000,
+      subtitleTrack: {
+        ...baseRenderPackage.subtitleTrack,
+        cues: [
+          {
+            id: "seg-1:1",
+            segmentId: "seg-1",
+            text: "一秒钟记一个单词。",
+            startMs: 0,
+            endMs: 3000,
+          },
+        ],
+      },
+      scenes: [
+        {
+          ...baseRenderPackage.scenes[0],
+          payload: {
+            word: "abide",
+            phonetic: "/əˈbaɪd/",
+            subtitleCues: [
+              {
+                id: "seg-1:1",
+                segmentId: "seg-1",
+                text: "一秒钟记一个单词。",
+                startMs: 0,
+                endMs: 3000,
+              },
+            ],
+          },
+        },
+      ],
+      durationInFrames: 90,
+    });
+
+    const result = await checkEnglishVideoQuality({
+      topicId: "english-word-quality",
+      inspectMedia: true,
+    });
+
+    expect(result.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "video-cue-volume", ok: false }),
       ]),
     );
   });
