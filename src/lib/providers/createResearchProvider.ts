@@ -205,7 +205,7 @@ export const createResearchProvider = async (): Promise<ResearchProvider> => {
     (subjectGroup) => subjectGroup.topics,
   );
 
-  if (config.PIPELINE_PROVIDER_MODE === "openai") {
+  if (config.PIPELINE_PROVIDER_MODE === "openai" && config.OPENAI_API_KEY) {
     return {
       researchTopic: async ({ topicId, promptContext }) => {
         const topic = topics.find((item) => item.id === topicId);
@@ -283,7 +283,10 @@ export const createResearchProvider = async (): Promise<ResearchProvider> => {
     };
   }
 
-  if (config.PIPELINE_PROVIDER_MODE !== "mock") {
+  if (
+    config.PIPELINE_PROVIDER_MODE !== "mock" &&
+    config.PIPELINE_PROVIDER_MODE !== "openai"
+  ) {
     throw new Error("Only mock research provider is implemented in this stage.");
   }
 

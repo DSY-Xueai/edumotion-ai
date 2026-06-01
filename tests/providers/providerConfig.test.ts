@@ -16,13 +16,16 @@ describe("readProviderConfig", () => {
     });
   });
 
-  it("requires an OpenAI API key in openai mode", () => {
-    expect(() =>
+  it("allows openai mode without an OpenAI API key so callers can fall back locally", () => {
+    expect(
       readProviderConfig({
         PIPELINE_PROVIDER_MODE: "openai",
         OPENAI_API_KEY: "",
       }),
-    ).toThrow();
+    ).toMatchObject({
+      PIPELINE_PROVIDER_MODE: "openai",
+      OPENAI_API_KEY: undefined,
+    });
   });
 
   it("fills OpenAI TTS defaults for real audio generation", () => {
@@ -120,14 +123,14 @@ describe("readProviderConfig", () => {
     expect(
       inspectProviderConfig({
         PIPELINE_PROVIDER_MODE: "openai",
-        TTS_PROVIDER: "mock",
+        TTS_PROVIDER: "openai",
       }),
     ).toMatchObject({
       providerMode: "openai",
-      ttsProvider: "mock",
+      ttsProvider: "openai",
       effectiveTtsMode: "mock",
       mockAudioFallbackActive: true,
-      requiresApiKey: true,
+      requiresApiKey: false,
       apiKeyConfigured: false,
     });
   });
@@ -149,6 +152,16 @@ describe("readProviderConfig", () => {
         allowMockAudio: true,
       }),
     ).not.toThrow();
+
+    expect(() =>
+      assertTtsReadyForFinalRender({
+        env: {
+          PIPELINE_PROVIDER_MODE: "openai",
+          OPENAI_API_KEY: "",
+          TTS_PROVIDER: "openai",
+        },
+      }),
+    ).toThrow(/Mock TTS is active/);
 
     expect(() =>
       assertTtsReadyForFinalRender({

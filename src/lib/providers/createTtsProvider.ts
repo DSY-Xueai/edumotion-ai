@@ -579,7 +579,11 @@ export const createTtsProvider = (): TtsProvider => {
     };
   }
 
-  if (config.TTS_PROVIDER === "openai" && config.PIPELINE_PROVIDER_MODE === "openai") {
+  if (
+    config.TTS_PROVIDER === "openai" &&
+    config.PIPELINE_PROVIDER_MODE === "openai" &&
+    config.OPENAI_API_KEY
+  ) {
     return {
       name: "openai",
       synthesizeSegment: async ({ segment }) => {

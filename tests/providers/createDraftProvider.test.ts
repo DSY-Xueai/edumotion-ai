@@ -399,7 +399,7 @@ describe("createDraftProvider", () => {
         },
         promptContext: "aboard",
       }),
-    ).rejects.toThrow(/Mock English draft provider cannot create a grounded mnemonic/);
+    ).rejects.toThrow(/Local English draft provider cannot create a grounded mnemonic/);
   });
 
   it("keeps every script line unique for supported english mock fixtures", async () => {

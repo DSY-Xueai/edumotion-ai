@@ -715,7 +715,7 @@ const buildEnglishDraft = ({
     }
 
     throw new Error(
-      `Mock English draft provider cannot create a grounded mnemonic for ${word}. Use PIPELINE_PROVIDER_MODE=openai for production English vocabulary drafts.`,
+      `Local English draft provider cannot create a grounded mnemonic for ${word}. Use the current AI assistant to write a project-compliant draft, or configure an optional runtime provider for automated draft generation.`,
     );
   };
 
@@ -840,7 +840,7 @@ const draftPayloadSchema = {
 export const createDraftProvider = (): DraftProvider => {
   const config = readProviderConfig();
 
-  if (config.PIPELINE_PROVIDER_MODE === "openai") {
+  if (config.PIPELINE_PROVIDER_MODE === "openai" && config.OPENAI_API_KEY) {
     return {
       createDraft: async ({ topicId, research, sceneBudgets, promptContext }) => {
         const isEnglishTopic = topicId.startsWith("english-");
@@ -947,7 +947,10 @@ export const createDraftProvider = (): DraftProvider => {
     };
   }
 
-  if (config.PIPELINE_PROVIDER_MODE !== "mock") {
+  if (
+    config.PIPELINE_PROVIDER_MODE !== "mock" &&
+    config.PIPELINE_PROVIDER_MODE !== "openai"
+  ) {
     throw new Error("Only mock and openai draft providers are implemented in this stage.");
   }
 

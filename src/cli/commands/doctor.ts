@@ -34,10 +34,8 @@ export const handleDoctor = async () => {
           ? "This project needs a runtime provider key only when you want the CLI to call a real model by itself."
           : "Current mode does not require a runtime provider key.",
         audioNote: config.mockAudioFallbackActive
-          ? "Current settings will generate placeholder tone audio unless you enable real OpenAI TTS or explicitly allow mock audio for testing."
-          : config.requiresApiKey && !config.apiKeyConfigured
-            ? "Real narration mode is configured, but audio generation is blocked until OPENAI_API_KEY is set."
-            : "Current settings are ready to generate spoken narration audio.",
+          ? "Current settings will generate placeholder tone audio unless you enable real TTS or explicitly allow mock audio for testing."
+          : "Current settings are ready to generate spoken narration audio.",
       },
       null,
       2,

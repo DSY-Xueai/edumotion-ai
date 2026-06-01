@@ -14,7 +14,8 @@
 - 数学 / 物理 / 化学 / 英语四套独立视觉系统
 - 英语词汇库已合并 CET4 / CET6 并按单词序号稳定生成
 - `mock` 模式可本地快速出样片，不依赖 runtime API key
-- `openai` 模式可接真实 `research / draft / TTS`
+- 当前开发对话里的 AI 可以直接协助生成、检查和修正英语文案，不要求项目额外绑定某一家模型
+- `openai` 模式是 CLI 自己联网生成 `research / draft / TTS` 的可选自动化 provider
 - `openai text + mock TTS` 混合模式可在不支持语音模型的网关上继续出片
 - 输出 `mp4 + render-package + workspace artifacts`
 - `doctor` 和 `provider probe` 支持运行时诊断
@@ -29,10 +30,10 @@ npm install
 
 这个项目区分两类“AI”：
 
-- 当前对话里的 AI：用于协助开发
+- 当前对话里的 AI：用于协助开发，也可以按项目规则生成、检查和修正英语视频文案
 - 项目运行时 provider：用于让 CLI 在本机自己联网调模型生成 `research / draft / TTS`
 
-只有第二类才需要运行时凭证。
+只有第二类才需要运行时凭证。项目本身不绑定某一家模型；谁接手就使用当前可用的 AI 工具完成内容生产，但英语视频必须使用真实音频并通过质量检测后才能交付。
 
 ### 本地 mock 模式
 
@@ -50,7 +51,7 @@ npm run english:wordbank
 npm run cli -- curriculum list --subject english --volume cet
 ```
 
-### OpenAI 运行时模式
+### 可选自动 provider 模式
 
 ```bash
 set PIPELINE_PROVIDER_MODE=openai
@@ -68,9 +69,10 @@ set ALIGNMENT_MODEL=gpt-4o-transcribe
 
 说明：
 
+- 这是给 CLI 无人值守自动生成 `research / draft / TTS` 用的 provider 模式，不是当前对话 AI 协作的前提
 - `OPENAI_BASE_URL` 允许切到 OpenAI-compatible 网关，不把项目绑死在某个编辑器或单一入口
 - `PIPELINE_PROVIDER_MODE=mock` 时不要求 `OPENAI_API_KEY`
-- `PIPELINE_PROVIDER_MODE=openai` 时，CLI 会自己联网调用模型，因此需要运行时 provider key
+- `PIPELINE_PROVIDER_MODE=openai` 只有在配置了对应运行时 key 时才会联网调用模型；没有 key 时不会卡在配置层，文本生成会回退到本地规则，最终视频仍需配置真实 TTS 并通过质量检测
 
 ### OpenAI 文本 + mock TTS 混合模式
 

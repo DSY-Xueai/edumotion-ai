@@ -54,15 +54,7 @@ const baseEnvSchema = z.object({
   RENDER_OUTPUT_MODE: renderModeSchema.default("mock"),
 });
 
-const envSchema = baseEnvSchema.superRefine((env, ctx) => {
-  if (env.PIPELINE_PROVIDER_MODE === "openai" && !env.OPENAI_API_KEY) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["OPENAI_API_KEY"],
-      message: "OPENAI_API_KEY is required when PIPELINE_PROVIDER_MODE=openai",
-    });
-  }
-});
+const envSchema = baseEnvSchema;
 
 export type ProviderConfig = z.infer<typeof envSchema>;
 export type ProviderConfigInspection = ReturnType<typeof inspectProviderConfig>;
@@ -83,10 +75,16 @@ export const readProviderConfig = (
 export const resolveEffectiveTtsMode = ({
   PIPELINE_PROVIDER_MODE,
   TTS_PROVIDER,
-}: Pick<ProviderConfig, "PIPELINE_PROVIDER_MODE" | "TTS_PROVIDER">): EffectiveTtsMode =>
+  OPENAI_API_KEY,
+}: Pick<
+  ProviderConfig,
+  "PIPELINE_PROVIDER_MODE" | "TTS_PROVIDER" | "OPENAI_API_KEY"
+>): EffectiveTtsMode =>
   TTS_PROVIDER === "qwen-local"
     ? "qwen-local"
-    : PIPELINE_PROVIDER_MODE === "openai" && TTS_PROVIDER === "openai"
+    : PIPELINE_PROVIDER_MODE === "openai" &&
+        TTS_PROVIDER === "openai" &&
+        OPENAI_API_KEY
       ? "openai"
       : "mock";
 
@@ -108,7 +106,8 @@ export const inspectProviderConfig = (
     qwenTtsLanguage: parsed.QWEN_TTS_LANGUAGE,
     qwenTtsAutoStart: parsed.QWEN_TTS_AUTO_START,
     openaiBaseUrl: parsed.OPENAI_BASE_URL,
-    requiresApiKey: parsed.PIPELINE_PROVIDER_MODE === "openai",
+    requiresApiKey:
+      parsed.PIPELINE_PROVIDER_MODE === "openai" && Boolean(parsed.OPENAI_API_KEY),
     apiKeyConfigured: Boolean(parsed.OPENAI_API_KEY),
   };
 };
@@ -131,6 +130,6 @@ export const assertTtsReadyForFinalRender = ({
   }
 
   throw new Error(
-    "Mock TTS is active, so this render would contain placeholder tone audio instead of spoken narration. Configure PIPELINE_PROVIDER_MODE=openai with OPENAI_API_KEY and TTS_PROVIDER=openai, or rerun with --allow-mock-audio for test-only output.",
+    "Mock TTS is active, so this render would contain placeholder tone audio instead of spoken narration. Configure TTS_PROVIDER=qwen-local, configure an optional real TTS provider, or rerun with --allow-mock-audio for test-only output.",
   );
 };

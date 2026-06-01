@@ -9,6 +9,36 @@ describe("openai structured providers", () => {
     vi.restoreAllMocks();
   });
 
+  it("falls back to local english research and draft providers when openai mode has no key", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "");
+    vi.stubEnv("PIPELINE_PROVIDER_MODE", "openai");
+
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const researchProvider = await createResearchProvider();
+    const research = await researchProvider.researchTopic({
+      topicId: "english-word-00002",
+      promptContext: "english-word-00002",
+    });
+    const draftProvider = createDraftProvider();
+    const draft = await draftProvider.createDraft({
+      topicId: "english-word-00002",
+      research: {
+        topicId: "english-word-00002",
+        scope: "topic",
+        ...research,
+      },
+      sceneBudgets: defaultSceneBudgets,
+      promptContext: "english-word-00002",
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(research.canonicalTitle).toBe("abandon");
+    expect(draft.toneProfile).toBe("english-vocabulary-card");
+    expect(draft.scriptSegments.map((segment) => segment.kind)).toContain("pronunciation");
+  });
+
   it("uses chat completions structured output for research generation", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("PIPELINE_PROVIDER_MODE", "openai");

@@ -139,6 +139,27 @@ describe("probeRuntimeProvider", () => {
     });
   });
 
+  it("reports local fallback without network access when openai mode has no key", async () => {
+    vi.stubEnv("PIPELINE_PROVIDER_MODE", "openai");
+    vi.stubEnv("OPENAI_API_KEY", "");
+
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await probeRuntimeProvider({ includeTts: true });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      providerMode: "openai",
+      healthy: true,
+      checks: {
+        structuredOutput: "mock-ready",
+        tts: "mock-ready",
+      },
+    });
+    expect(result.details.join("\n")).toContain("No runtime provider key is configured");
+  });
+
   it("optionally probes the TTS and transcription endpoints too", async () => {
     vi.stubEnv("PIPELINE_PROVIDER_MODE", "openai");
     vi.stubEnv("OPENAI_API_KEY", "test-key");

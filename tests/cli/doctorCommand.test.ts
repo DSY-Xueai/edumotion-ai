@@ -29,11 +29,11 @@ describe("doctor command", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('"providerMode": "openai"');
-    expect(result.stdout).toContain('"effectiveTtsMode": "openai"');
-    expect(result.stdout).toContain('"mockAudioFallbackActive": false');
-    expect(result.stdout).toContain('"requiresApiKey": true');
+    expect(result.stdout).toContain('"effectiveTtsMode": "mock"');
+    expect(result.stdout).toContain('"mockAudioFallbackActive": true');
+    expect(result.stdout).toContain('"requiresApiKey": false');
     expect(result.stdout).toContain('"apiKeyConfigured": false');
-    expect(result.stdout).toContain("blocked until OPENAI_API_KEY is set");
+    expect(result.stdout).toContain("placeholder tone audio");
     expect(result.stdout).toContain('"browserExecutableFound"');
   });
 

@@ -82,6 +82,52 @@ export const probeRuntimeProvider = async ({
     return result;
   }
 
+  if (!config.OPENAI_API_KEY) {
+    const result: RuntimeProviderProbe = {
+      providerMode: "openai",
+      baseUrl: config.OPENAI_BASE_URL,
+      healthy: true,
+      checks: {
+        structuredOutput: "mock-ready",
+      },
+      details: [
+        "No runtime provider key is configured. Structured generation will use local fallback unless the current AI assistant writes the artifacts directly.",
+      ],
+    };
+
+    if (!includeTts) {
+      return result;
+    }
+
+    if (config.TTS_PROVIDER !== "qwen-local") {
+      result.checks.tts = "mock-ready";
+      result.details.push("TTS provider is not configured for real local audio.");
+      return result;
+    }
+
+    const ttsProvider = createTtsProvider();
+    const audio = await ttsProvider.synthesizeSegment({
+      topicId: "provider-probe",
+      segment: {
+        id: "provider-probe-seg",
+        kind: "hook",
+        text: "测试运行时 provider",
+      },
+    });
+
+    result.checks.tts = "ok";
+    result.models = {
+      research: config.RESEARCH_MODEL,
+      tts: config.TTS_MODEL,
+      alignment: config.ALIGNMENT_MODEL,
+    };
+    result.details.push(
+      `TTS probe passed with ${audio.audioFile.extension} audio, ${audio.durationMs}ms, ${audio.chunks.length} chunk(s).`,
+    );
+
+    return result;
+  }
+
   const structured = await requestStructuredOpenAIOutput<{
     ok: boolean;
     provider: string;
