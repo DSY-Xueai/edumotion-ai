@@ -266,6 +266,62 @@ describe("AutoVideoComposition", () => {
     expect(html).not.toContain("巧记");
   });
 
+  it("raises the visible caption stage above platform overlays", () => {
+    const spec: RenderPackage = {
+      topicId: "english-word-00051",
+      lessonVersion: 1,
+      canonicalTitle: "according",
+      approvedAt: "2026-06-03T00:00:00.000Z",
+      generatedAt: "2026-06-03T00:00:00.000Z",
+      totalDurationMs: 3000,
+      meta: {
+        topicId: "english-word-00051",
+        subject: "english",
+        aspectRatio: "9:16",
+      },
+      subject: "english",
+      themeTokens: {
+        palette: "english-vocab-card",
+        typography: "english-serif",
+        accent: "#ff8d7a",
+      },
+      audioTracks: [],
+      subtitleTrack: {
+        topicId: "english-word-00051",
+        subject: "english",
+        cues: [
+          {
+            id: "cue-english-51",
+            segmentId: "seg-english-51",
+            text: "今天要记的单词是 according。",
+            startMs: 0,
+            endMs: 3000,
+          },
+        ],
+      },
+      scenes: [
+        {
+          id: "scene-english-51",
+          kind: "definition",
+          component: "english/definition",
+          durationInFrames: 90,
+          payload: {
+            title: "according",
+            narration: "今天要记的单词是 according。",
+            word: "according",
+            meaning: "相等的， 一致的， 依…而定的",
+          },
+        },
+      ],
+      durationInFrames: 90,
+    };
+
+    const html = renderToStaticMarkup(<AutoVideoComposition {...spec} />);
+
+    expect(html).toContain("bottom:330px");
+    expect(html).toContain("今天要记的单词是 according。");
+  });
+
   it("times the english word roll-in against the definition subtitle cue", () => {
     remotionFrame = 90;
 

@@ -91,7 +91,7 @@ const CaptionStage = ({
         position: "absolute",
         left: 58,
         right: 58,
-        bottom: 116,
+        bottom: 330,
         padding: variant === "dopamine" ? "24px 32px" : "28px 34px",
         borderRadius: variant === "dopamine" ? 24 : 30,
         background:
