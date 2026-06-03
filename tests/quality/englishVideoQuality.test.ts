@@ -745,6 +745,280 @@ describe("checkEnglishVideoQuality", () => {
     );
   });
 
+  it("rejects scripts that are too thin to carry a useful English teaching video", async () => {
+    const workspaceRoot = path.join(process.cwd(), ".tmp-quality-thin-structure");
+    vi.stubEnv("TOPIC_WORKSPACE_ROOT", workspaceRoot);
+
+    const topicRoot = path.join(workspaceRoot, "english-word-quality");
+    await writeJson(path.join(topicRoot, "approved", "lesson.json"), {
+      ...baseApprovedLesson,
+      approvedScript: [
+        { id: "seg-1", kind: "definition", text: "abide，就是忍受；遵守。" },
+        { id: "seg-2", kind: "wrap", text: "记住 abide。" },
+      ],
+      sourceSummary: {
+        ...baseApprovedLesson.sourceSummary,
+        phonetic: "/əˈbaɪd/",
+      },
+    });
+    await writeJson(path.join(topicRoot, "audio", "manifest.json"), {
+      ...baseAudioManifest,
+      segments: [
+        {
+          segmentId: "seg-1",
+          kind: "definition",
+          text: "abide，就是忍受；遵守。",
+          audioPath: "audio/seg-1.wav",
+          durationMs: 2500,
+          chunks: [{ text: "abide，就是忍受；遵守。", startMs: 0, endMs: 2500 }],
+        },
+        {
+          segmentId: "seg-2",
+          kind: "wrap",
+          text: "记住 abide。",
+          audioPath: "audio/seg-2.wav",
+          durationMs: 2000,
+          chunks: [{ text: "记住 abide。", startMs: 0, endMs: 2000 }],
+        },
+      ],
+      subtitleTrack: {
+        cues: [
+          {
+            id: "seg-1:1",
+            segmentId: "seg-1",
+            text: "abide，就是忍受；遵守。",
+            startMs: 0,
+            endMs: 2500,
+          },
+          {
+            id: "seg-2:1",
+            segmentId: "seg-2",
+            text: "记住 abide。",
+            startMs: 2500,
+            endMs: 4500,
+          },
+        ],
+      },
+      totalDurationMs: 4500,
+    });
+    await writeJson(path.join(topicRoot, "render", "render-package.json"), {
+      ...baseRenderPackage,
+      totalDurationMs: 4500,
+      subtitleTrack: {
+        ...baseRenderPackage.subtitleTrack,
+        cues: [
+          {
+            id: "seg-1:1",
+            segmentId: "seg-1",
+            text: "abide，就是忍受；遵守。",
+            startMs: 0,
+            endMs: 2500,
+          },
+          {
+            id: "seg-2:1",
+            segmentId: "seg-2",
+            text: "记住 abide。",
+            startMs: 2500,
+            endMs: 4500,
+          },
+        ],
+      },
+      scenes: [
+        {
+          ...baseRenderPackage.scenes[0],
+          payload: {
+            word: "abide",
+            phonetic: "/əˈbaɪd/",
+            partOfSpeech: "v.",
+            meaning: "忍受；遵守",
+            mnemonic: "遇到规则先忍住，再照做。",
+            contrast: "不是喜欢，而是忍住并遵守。",
+            segmentIds: ["seg-1", "seg-2"],
+            subtitleCues: [
+              {
+                id: "seg-1:1",
+                segmentId: "seg-1",
+                text: "abide，就是忍受；遵守。",
+                startMs: 0,
+                endMs: 2500,
+              },
+            ],
+          },
+        },
+      ],
+      durationInFrames: 135,
+    });
+
+    const result = await checkEnglishVideoQuality({
+      topicId: "english-word-quality",
+      inspectMedia: false,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "teaching-structure", ok: false }),
+        expect.objectContaining({ id: "duration", ok: false }),
+      ]),
+    );
+  });
+
+  it("rejects audio and subtitles that no longer match the approved script", async () => {
+    const workspaceRoot = path.join(process.cwd(), ".tmp-quality-script-audio-mismatch");
+    vi.stubEnv("TOPIC_WORKSPACE_ROOT", workspaceRoot);
+
+    const topicRoot = path.join(workspaceRoot, "english-word-quality");
+    await writeJson(path.join(topicRoot, "approved", "lesson.json"), {
+      ...baseApprovedLesson,
+      approvedScript: [
+        { id: "seg-1", kind: "hook", text: "一秒钟记一个单词。" },
+        { id: "seg-2", kind: "definition", text: "今天要记的单词是 abide，意思是：忍受；遵守。" },
+        { id: "seg-3", kind: "compare", text: "遇到难受的规则，先忍住，再照着要求做。" },
+        { id: "seg-4", kind: "pronunciation", text: "abide" },
+        { id: "seg-5", kind: "wrap", text: "所以：abide，就是忍受并遵守。" },
+      ],
+      sourceSummary: {
+        ...baseApprovedLesson.sourceSummary,
+        phonetic: "/əˈbaɪd/",
+      },
+    });
+    await writeJson(path.join(topicRoot, "audio", "manifest.json"), {
+      ...baseAudioManifest,
+      segments: [
+        {
+          segmentId: "seg-1",
+          kind: "hook",
+          text: "Repeat after me: abide means to follow a rule.",
+          audioPath: "audio/seg-1.wav",
+          durationMs: 3000,
+          chunks: [
+            {
+              text: "Repeat after me: abide means to follow a rule.",
+              startMs: 0,
+              endMs: 3000,
+            },
+          ],
+        },
+      ],
+      subtitleTrack: {
+        cues: [
+          {
+            id: "seg-1:1",
+            segmentId: "seg-1",
+            text: "Repeat after me: abide means to follow a rule.",
+            startMs: 0,
+            endMs: 3000,
+          },
+        ],
+      },
+      totalDurationMs: 3000,
+    });
+    await writeJson(path.join(topicRoot, "render", "render-package.json"), {
+      ...baseRenderPackage,
+      totalDurationMs: 3000,
+      subtitleTrack: {
+        ...baseRenderPackage.subtitleTrack,
+        cues: [
+          {
+            id: "seg-1:1",
+            segmentId: "seg-1",
+            text: "Repeat after me: abide means to follow a rule.",
+            startMs: 0,
+            endMs: 3000,
+          },
+        ],
+      },
+      scenes: [
+        {
+          ...baseRenderPackage.scenes[0],
+          payload: {
+            word: "abide",
+            phonetic: "/əˈbaɪd/",
+            partOfSpeech: "v.",
+            meaning: "忍受；遵守",
+            mnemonic: "遇到规则先忍住，再照做。",
+            contrast: "不是喜欢，而是忍住并遵守。",
+            segmentIds: ["seg-1"],
+            subtitleCues: [
+              {
+                id: "seg-1:1",
+                segmentId: "seg-1",
+                text: "Repeat after me: abide means to follow a rule.",
+                startMs: 0,
+                endMs: 3000,
+              },
+            ],
+          },
+        },
+      ],
+      durationInFrames: 90,
+    });
+
+    const result = await checkEnglishVideoQuality({
+      topicId: "english-word-quality",
+      inspectMedia: false,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "script-audio-alignment", ok: false }),
+      ]),
+    );
+  });
+
+  it("rejects English definition cards that omit required teaching payload", async () => {
+    const workspaceRoot = path.join(process.cwd(), ".tmp-quality-card-payload");
+    vi.stubEnv("TOPIC_WORKSPACE_ROOT", workspaceRoot);
+
+    const topicRoot = path.join(workspaceRoot, "english-word-quality");
+    await writeJson(path.join(topicRoot, "approved", "lesson.json"), {
+      ...baseApprovedLesson,
+      approvedScript: [
+        { id: "seg-1", kind: "hook", text: "一秒钟记一个单词。" },
+        { id: "seg-2", kind: "definition", text: "今天要记的单词是 abide，意思是：忍受；遵守。" },
+        { id: "seg-3", kind: "compare", text: "遇到难受的规则，先忍住，再照着要求做。" },
+        { id: "seg-4", kind: "pronunciation", text: "abide" },
+        { id: "seg-5", kind: "wrap", text: "所以：abide，就是忍受并遵守。" },
+      ],
+      sourceSummary: {
+        ...baseApprovedLesson.sourceSummary,
+        phonetic: "/əˈbaɪd/",
+      },
+    });
+    await writeJson(path.join(topicRoot, "audio", "manifest.json"), {
+      ...baseAudioManifest,
+      totalDurationMs: 9000,
+    });
+    await writeJson(path.join(topicRoot, "render", "render-package.json"), {
+      ...baseRenderPackage,
+      totalDurationMs: 9000,
+      scenes: [
+        {
+          ...baseRenderPackage.scenes[0],
+          payload: {
+            word: "abide",
+            phonetic: "/əˈbaɪd/",
+            meaning: "忍受；遵守",
+            subtitleCues: baseRenderPackage.subtitleTrack.cues,
+          },
+        },
+      ],
+    });
+
+    const result = await checkEnglishVideoQuality({
+      topicId: "english-word-quality",
+      inspectMedia: false,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "visual-card-payload", ok: false }),
+      ]),
+    );
+  });
+
   it("fails closed when visual quality inspection cannot inspect rendered frames", async () => {
     const workspaceRoot = path.join(process.cwd(), ".tmp-quality-visual-fail");
     vi.stubEnv("TOPIC_WORKSPACE_ROOT", workspaceRoot);
@@ -1078,13 +1352,53 @@ describe("checkEnglishVideoQuality", () => {
   it("exposes the quality check through the CLI", async () => {
     const workspaceRoot = path.join(process.cwd(), ".tmp-quality-cli");
     const topicRoot = path.join(workspaceRoot, "english-word-quality");
+    const approvedScript = [
+      { id: "seg-1", kind: "hook", text: "一秒钟记一个单词。" },
+      { id: "seg-2", kind: "definition", text: "今天要记的单词是 abide，意思是：忍受；遵守。" },
+      { id: "seg-3", kind: "compare", text: "遇到不舒服的规则，你先忍住，再照着要求做。" },
+      { id: "seg-4", kind: "pronunciation", text: "abide" },
+      { id: "seg-5", kind: "wrap", text: "所以：abide，就是忍受并遵守。" },
+    ];
+    const subtitleCues = [
+      {
+        id: "seg-1:1",
+        segmentId: "seg-1",
+        text: "一秒钟记一个单词。",
+        startMs: 0,
+        endMs: 2000,
+      },
+      {
+        id: "seg-2:1",
+        segmentId: "seg-2",
+        text: "今天要记的单词是 abide，意思是：忍受；遵守。",
+        startMs: 2000,
+        endMs: 5000,
+      },
+      {
+        id: "seg-3:1",
+        segmentId: "seg-3",
+        text: "遇到不舒服的规则，你先忍住，再照着要求做。",
+        startMs: 5000,
+        endMs: 9000,
+      },
+      {
+        id: "seg-4:1",
+        segmentId: "seg-4",
+        text: "abide",
+        startMs: 9000,
+        endMs: 11000,
+      },
+      {
+        id: "seg-5:1",
+        segmentId: "seg-5",
+        text: "所以：abide，就是忍受并遵守。",
+        startMs: 11000,
+        endMs: 14000,
+      },
+    ];
     await writeJson(path.join(topicRoot, "approved", "lesson.json"), {
       ...baseApprovedLesson,
-      approvedScript: [
-        { id: "seg-1", kind: "hook", text: "一秒钟记一个单词。" },
-        { id: "seg-2", kind: "compare", text: "遇到不舒服的规则，你先忍住，再照着要求做。" },
-        { id: "seg-3", kind: "wrap", text: "abide，就是忍受并遵守。" },
-      ],
+      approvedScript,
       sourceSummary: {
         ...baseApprovedLesson.sourceSummary,
         phonetic: "/əˈbaɪd/",
@@ -1093,47 +1407,29 @@ describe("checkEnglishVideoQuality", () => {
     });
     await writeJson(path.join(topicRoot, "audio", "manifest.json"), {
       ...baseAudioManifest,
+      segments: approvedScript.map((segment, index) => {
+        const cue = subtitleCues[index]!;
+
+        return {
+          segmentId: segment.id,
+          kind: segment.kind,
+          text: segment.text,
+          audioPath: `audio/${segment.id}.wav`,
+          durationMs: cue.endMs - cue.startMs,
+          chunks: [{ text: segment.text, startMs: 0, endMs: cue.endMs - cue.startMs }],
+        };
+      }),
       subtitleTrack: {
-        cues: [
-          {
-            id: "seg-1:1",
-            segmentId: "seg-1",
-            text: "一秒钟记一个单词。",
-            startMs: 0,
-            endMs: 2000,
-          },
-          {
-            id: "seg-2:1",
-            segmentId: "seg-2",
-            text: "所以：abide，就是忍受并遵守。",
-            startMs: 2000,
-            endMs: 5000,
-          },
-        ],
+        cues: subtitleCues,
       },
-      totalDurationMs: 20000,
+      totalDurationMs: 14000,
     });
     await writeJson(path.join(topicRoot, "render", "render-package.json"), {
       ...baseRenderPackage,
-      totalDurationMs: 20000,
+      totalDurationMs: 14000,
       subtitleTrack: {
         ...baseRenderPackage.subtitleTrack,
-        cues: [
-          {
-            id: "seg-1:1",
-            segmentId: "seg-1",
-            text: "一秒钟记一个单词。",
-            startMs: 0,
-            endMs: 2000,
-          },
-          {
-            id: "seg-2:1",
-            segmentId: "seg-2",
-            text: "所以：abide，就是忍受并遵守。",
-            startMs: 2000,
-            endMs: 5000,
-          },
-        ],
+        cues: subtitleCues,
       },
       scenes: [
         {
@@ -1141,23 +1437,11 @@ describe("checkEnglishVideoQuality", () => {
           payload: {
             ...baseRenderPackage.scenes[0].payload,
             phonetic: "/əˈbaɪd/",
-            segmentIds: ["seg-1", "seg-2"],
-            subtitleCues: [
-              {
-                id: "seg-1:1",
-                segmentId: "seg-1",
-                text: "一秒钟记一个单词。",
-                startMs: 0,
-                endMs: 2000,
-              },
-              {
-                id: "seg-2:1",
-                segmentId: "seg-2",
-                text: "所以：abide，就是忍受并遵守。",
-                startMs: 2000,
-                endMs: 5000,
-              },
-            ],
+            partOfSpeech: "v.",
+            mnemonic: "遇到规则先忍住，再照做。",
+            contrast: "不是喜欢，而是忍住并遵守。",
+            segmentIds: approvedScript.map((segment) => segment.id),
+            subtitleCues,
           },
         },
       ],

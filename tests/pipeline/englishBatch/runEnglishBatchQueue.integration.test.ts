@@ -254,4 +254,76 @@ describe("runEnglishBatchQueueWithDefaults", () => {
     expect(approveDraft).toHaveBeenCalledTimes(1);
     expect(runApprovedToRender).toHaveBeenCalledTimes(2);
   });
+
+  it("treats script and audio alignment failures as media retry failures", async () => {
+    vi.mocked(readEnglishWordbank).mockResolvedValue({
+      edition: "pep-2019",
+      generatedAt: "2026-05-28T00:00:00.000Z",
+      sourceFiles: [],
+      entries: [
+        {
+          id: "english-word-00013",
+          word: "abortion",
+          normalizedWord: "abortion",
+          phonetic: "",
+          partOfSpeech: "n.",
+          meaningLines: ["流产"],
+          sourceLevels: ["CET6"],
+          sourceLines: [
+            {
+              sourceLevel: "CET6",
+              rawLine: "abortion n. 流产",
+              phonetic: "",
+              partOfSpeech: "n.",
+              meaning: "流产",
+            },
+          ],
+        },
+      ],
+    });
+    vi.mocked(runTopicToDraft).mockResolvedValue(undefined);
+    vi.mocked(approveDraft).mockResolvedValue({} as Awaited<ReturnType<typeof approveDraft>>);
+    vi.mocked(runApprovedToRender).mockResolvedValue(
+      {} as Awaited<ReturnType<typeof runApprovedToRender>>,
+    );
+    vi.mocked(checkEnglishVideoQuality)
+      .mockResolvedValueOnce({
+        topicId: "english-word-00013",
+        ok: false,
+        checks: [
+          {
+            id: "script-audio-alignment",
+            ok: false,
+            message: "Audio manifest or render subtitles no longer match the approved script.",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        topicId: "english-word-00013",
+        ok: true,
+        checks: [],
+      });
+    vi.mocked(readApprovedLesson).mockResolvedValue({
+      approvedScript: [
+        {
+          id: "english-word-00013-seg-compare",
+          kind: "compare",
+          text: "医院知情同意书写明终止妊娠。",
+        },
+      ],
+    } as Awaited<ReturnType<typeof readApprovedLesson>>);
+
+    const report = await runEnglishBatchQueueWithDefaults({
+      topicIds: ["english-word-00013"],
+      targetPassed: 1,
+      now: () => "2026-05-28T00:00:00.000Z",
+      writeManifest: async () => undefined,
+      cleanupFailedTopic: async () => undefined,
+    });
+
+    expect(report.retryPassed).toBe(1);
+    expect(runTopicToDraft).toHaveBeenCalledTimes(1);
+    expect(approveDraft).toHaveBeenCalledTimes(1);
+    expect(runApprovedToRender).toHaveBeenCalledTimes(2);
+  });
 });

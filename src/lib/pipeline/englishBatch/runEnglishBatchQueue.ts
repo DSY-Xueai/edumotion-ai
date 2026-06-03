@@ -155,6 +155,7 @@ const stageForCheckId = (checkId: string): EnglishBatchFailureStage => {
     checkId.startsWith("audio") ||
     checkId.startsWith("asr-") ||
     checkId.startsWith("video") ||
+    checkId === "script-audio-alignment" ||
     checkId === "audio-provider"
   ) {
     return "audio_quality";

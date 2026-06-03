@@ -3,9 +3,9 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { estimateMinimumSpeechDurationMs } from "../audio/estimateSpeechTiming";
-import { audioManifestSchema } from "../audio/schema";
+import { audioManifestSchema, type AudioManifest } from "../audio/schema";
 import { renderPackageSchema, type RenderPackage } from "../rendering/schema";
-import { approvedLessonSchema } from "../review/schema";
+import { approvedLessonSchema, type ApprovedLesson } from "../review/schema";
 import { getTopicWorkspace } from "../workspace/getTopicWorkspace";
 import { checkEnglishAsrCoverage } from "./checkEnglishAsrCoverage";
 import { checkEnglishVisualQuality } from "./checkEnglishVisualQuality";
@@ -14,6 +14,7 @@ const execFileAsync = promisify(execFile);
 const minimumUsableMaxVolumeDb = -24;
 const audioWindowMs = 1000;
 const leadingAudioWindowMs = 800;
+const minimumEnglishDurationMs = 8000;
 
 export type EnglishQualityCheck = {
   id: string;
@@ -73,9 +74,12 @@ const hasExplanatoryCopy = ({
 }) => {
   const tokens = meaningTokens(definitions);
   const matchedCount = tokens.filter((token) => scriptText.includes(token)).length;
-  const hasConnector = /就是|所以|意思是|想到|抓住|等于|=/u.test(scriptText);
+  const hasConcreteTeachingCopy =
+    /先|再|把|被|从|到|停|丢|忍|守|照做|跨|站|显示|决定|动作|状态|范围|规则|要求|例子|比如|情况|过程|结果/u.test(
+      scriptText,
+    );
 
-  return matchedCount >= Math.min(2, tokens.length) || (matchedCount >= 1 && hasConnector);
+  return matchedCount >= Math.min(2, tokens.length) || (matchedCount >= 1 && hasConcreteTeachingCopy);
 };
 
 const hasGroundedMnemonicCopy = ({
@@ -214,6 +218,219 @@ const phoneticIssues = ({
 
 const hasLiteralEscapeText = (value: unknown) =>
   /[\\](?:u[0-9a-fA-F]{2,6}|x[0-9a-fA-F]{2})/u.test(JSON.stringify(value));
+
+const normalizeComparableText = (value: string) =>
+  value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+
+const textMatches = (left: string, right: string) => {
+  const normalizedLeft = normalizeComparableText(left);
+  const normalizedRight = normalizeComparableText(right);
+
+  return normalizedLeft.length > 0 && normalizedLeft === normalizedRight;
+};
+
+const teachingStructureIssues = ({
+  approvedLesson,
+  renderPackage,
+}: {
+  approvedLesson: ApprovedLesson;
+  renderPackage: RenderPackage;
+}) => {
+  const kinds = new Set(approvedLesson.approvedScript.map((segment) => segment.kind));
+  const issues: Array<{ reason: string; details?: unknown }> = [];
+  const requiredKinds = ["definition", "pronunciation", "wrap"];
+  const missingKinds = requiredKinds.filter((kind) => !kinds.has(kind));
+  const hasDevelopmentSegment = ["compare", "process", "pitfall", "rule"].some((kind) =>
+    kinds.has(kind),
+  );
+
+  if (approvedLesson.approvedScript.length < 5) {
+    issues.push({
+      reason: "Approved script has fewer than five teaching segments.",
+      details: { segmentCount: approvedLesson.approvedScript.length },
+    });
+  }
+
+  if (missingKinds.length > 0) {
+    issues.push({
+      reason: "Approved script is missing required English teaching segment kinds.",
+      details: { missingKinds },
+    });
+  }
+
+  if (!hasDevelopmentSegment) {
+    issues.push({
+      reason: "Approved script has no compare/process/pitfall/rule segment to teach the meaning.",
+    });
+  }
+
+  if (renderPackage.subtitleTrack.cues.length < 3) {
+    issues.push({
+      reason: "Render package has fewer than three subtitle cues.",
+      details: { cueCount: renderPackage.subtitleTrack.cues.length },
+    });
+  }
+
+  return issues;
+};
+
+const scriptAudioAlignmentIssues = ({
+  approvedLesson,
+  audioManifest,
+  renderPackage,
+}: {
+  approvedLesson: ApprovedLesson;
+  audioManifest: AudioManifest;
+  renderPackage: RenderPackage;
+}) => {
+  const issues: Array<{ id: string; reason: string; details?: unknown }> = [];
+  const approvedById = new Map(
+    approvedLesson.approvedScript.map((segment) => [segment.id, segment] as const),
+  );
+  const audioById = new Map(
+    audioManifest.segments.map((segment) => [segment.segmentId, segment] as const),
+  );
+  const audioCuesBySegmentId = new Map<string, string[]>();
+
+  for (const cue of audioManifest.subtitleTrack.cues) {
+    audioCuesBySegmentId.set(cue.segmentId, [
+      ...(audioCuesBySegmentId.get(cue.segmentId) ?? []),
+      cue.text,
+    ]);
+  }
+
+  for (const segment of approvedLesson.approvedScript) {
+    if (!audioById.has(segment.id)) {
+      issues.push({
+        id: segment.id,
+        reason: "Approved script segment is missing from the audio manifest.",
+      });
+    }
+  }
+
+  for (const segment of audioManifest.segments) {
+    const approvedSegment = approvedById.get(segment.segmentId);
+
+    if (!approvedSegment) {
+      issues.push({
+        id: segment.segmentId,
+        reason: "Audio manifest segment does not exist in the approved script.",
+      });
+      continue;
+    }
+
+    if (!textMatches(segment.text, approvedSegment.text)) {
+      issues.push({
+        id: segment.segmentId,
+        reason: "Audio manifest segment text differs from the approved script.",
+        details: {
+          approvedText: approvedSegment.text,
+          audioText: segment.text,
+        },
+      });
+    }
+
+    const chunkText = segment.chunks.map((chunk) => chunk.text).join("");
+    if (!textMatches(chunkText, segment.text)) {
+      issues.push({
+        id: segment.segmentId,
+        reason: "Audio chunks no longer reconstruct the manifest segment text.",
+        details: {
+          segmentText: segment.text,
+          chunkText,
+        },
+      });
+    }
+
+    const cueText = (audioCuesBySegmentId.get(segment.segmentId) ?? []).join("");
+    if (!textMatches(cueText, segment.text)) {
+      issues.push({
+        id: segment.segmentId,
+        reason: "Subtitle cues no longer reconstruct the manifest segment text.",
+        details: {
+          segmentText: segment.text,
+          cueText,
+        },
+      });
+    }
+  }
+
+  const audioCueById = new Map(
+    audioManifest.subtitleTrack.cues.map((cue) => [cue.id, cue] as const),
+  );
+  for (const cue of renderPackage.subtitleTrack.cues) {
+    const audioCue = audioCueById.get(cue.id);
+
+    if (!audioCue) {
+      issues.push({
+        id: cue.id,
+        reason: "Render subtitle cue does not exist in the audio manifest.",
+      });
+      continue;
+    }
+
+    if (
+      !textMatches(cue.text, audioCue.text) ||
+      cue.startMs !== audioCue.startMs ||
+      cue.endMs !== audioCue.endMs ||
+      cue.segmentId !== audioCue.segmentId
+    ) {
+      issues.push({
+        id: cue.id,
+        reason: "Render subtitle cue differs from the audio manifest subtitle cue.",
+        details: {
+          audioCue,
+          renderCue: cue,
+        },
+      });
+    }
+  }
+
+  return issues;
+};
+
+const visualCardPayloadIssues = (renderPackage: RenderPackage) => {
+  const definitionScenes = renderPackage.scenes.filter((scene) => scene.kind === "definition");
+  const requiredStringFields = ["word", "phonetic", "partOfSpeech", "meaning", "mnemonic", "contrast"];
+  const issues: Array<{ id: string; reason: string; details?: unknown }> = [];
+
+  if (definitionScenes.length === 0) {
+    return [{ id: "definition", reason: "Render package has no definition scene." }];
+  }
+
+  for (const scene of definitionScenes) {
+    const missingFields = requiredStringFields.filter(
+      (field) => !stringValue(scene.payload[field]),
+    );
+    const subtitleCues = subtitleCueArrayValue(scene.payload.subtitleCues);
+    const word = stringValue(scene.payload.word);
+
+    if (missingFields.length > 0) {
+      issues.push({
+        id: scene.id,
+        reason: "Definition card payload is missing required teaching fields.",
+        details: { missingFields },
+      });
+    }
+
+    if (!word || normalizeComparableText(word) !== normalizeComparableText(renderPackage.canonicalTitle)) {
+      issues.push({
+        id: scene.id,
+        reason: "Definition card word does not match the target word.",
+        details: { word, targetWord: renderPackage.canonicalTitle },
+      });
+    }
+
+    if (subtitleCues.length === 0) {
+      issues.push({
+        id: scene.id,
+        reason: "Definition card payload is missing subtitle cues.",
+      });
+    }
+  }
+
+  return issues;
+};
 
 const inspectAudioStream = async (videoPath: string) => {
   const { stdout } = await execFileAsync("ffprobe", [
@@ -377,16 +594,60 @@ export const checkEnglishVideoQuality = async ({
     details: missingPhonetics,
   });
 
+  const durationOk =
+    renderPackage.totalDurationMs >= minimumEnglishDurationMs &&
+    renderPackage.totalDurationMs <= 30_000;
   checks.push({
     id: "duration",
-    ok: renderPackage.totalDurationMs <= 30_000,
-    message:
-      renderPackage.totalDurationMs <= 30_000
-        ? "Total duration is within the English short-video target."
-        : "Total duration exceeds 30 seconds.",
+    ok: durationOk,
+    message: durationOk
+      ? "Total duration is within the English short-video target."
+      : `Total duration must be between ${minimumEnglishDurationMs}ms and 30000ms.`,
     details: {
       totalDurationMs: renderPackage.totalDurationMs,
+      minimumDurationMs: minimumEnglishDurationMs,
+      maximumDurationMs: 30_000,
     },
+  });
+
+  const teachingIssues = teachingStructureIssues({
+    approvedLesson,
+    renderPackage,
+  });
+  checks.push({
+    id: "teaching-structure",
+    ok: teachingIssues.length === 0,
+    message:
+      teachingIssues.length === 0
+        ? "Approved script and subtitles include the required English teaching structure."
+        : "Approved script or subtitles are too thin for a useful English teaching video.",
+    details: teachingIssues,
+  });
+
+  const alignmentIssues = scriptAudioAlignmentIssues({
+    approvedLesson,
+    audioManifest,
+    renderPackage,
+  });
+  checks.push({
+    id: "script-audio-alignment",
+    ok: alignmentIssues.length === 0,
+    message:
+      alignmentIssues.length === 0
+        ? "Audio manifest and render subtitles match the approved script."
+        : "Audio manifest or render subtitles no longer match the approved script.",
+    details: alignmentIssues,
+  });
+
+  const cardPayloadIssues = visualCardPayloadIssues(renderPackage);
+  checks.push({
+    id: "visual-card-payload",
+    ok: cardPayloadIssues.length === 0,
+    message:
+      cardPayloadIssues.length === 0
+        ? "English definition cards include required teaching payload."
+        : "English definition cards are missing required teaching payload.",
+    details: cardPayloadIssues,
   });
 
   const longCues = renderPackage.subtitleTrack.cues.filter(
