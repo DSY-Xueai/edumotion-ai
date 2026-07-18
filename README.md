@@ -64,7 +64,7 @@ workspace/videos/<日期>/<序号>/math-b1-ch1-topic-001/
 | `PIPELINE_PROVIDER_MODE` | `mock` / `openai` | 生成 research 和 draft |
 | `TTS_PROVIDER` | `mock` / `openai` / `qwen-local` | 生成分段语音和字幕时序 |
 
-运行项目不要求 API Key；只有启用 `openai` Provider 时才需要对应接口凭证。当前使用 [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) 服务生成语音。
+启用 `openai` Provider 时才需要对应接口凭证。当前使用 [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) 服务生成语音。
 
 本地 Qwen3-TTS 的模型、Python 环境和启动方式见 [`docs/qwen-tts-local.md`](docs/qwen-tts-local.md)。正式视频不要使用 `--allow-mock-audio`。
 
