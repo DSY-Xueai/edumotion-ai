@@ -116,3 +116,7 @@ npm run cli -- quality english --topic-id <topic-id>
 ```
 
 See [`docs/english-video-quality.md`](docs/english-video-quality.md) for the complete rules. Automated checks define the delivery baseline; every production video should still be reviewed manually before release.
+
+## License
+
+[MIT](./LICENSE)

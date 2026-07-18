@@ -116,3 +116,7 @@ npm run cli -- quality english --topic-id <topic-id>
 ```
 
 完整规则见 [`docs/english-video-quality.md`](docs/english-video-quality.md)。自动检查是交付底线，正式发布前仍需人工观看成片。
+
+## License
+
+[MIT](./LICENSE)
