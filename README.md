@@ -12,7 +12,7 @@ EduMotion AI 是一个本地运行的教学短视频生产工具：选择一个�
 - npm 10 或更高版本（当前验证版本：11.5.1）
 - Chrome 或 Edge
 
-以下命令使用 PowerShell。
+以下示例采用 PowerShell 语法。
 
 ### 安装并检查环境
 

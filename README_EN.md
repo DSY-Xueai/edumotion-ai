@@ -12,7 +12,7 @@ Requirements:
 - npm 10 or later (currently verified with 11.5.1)
 - Chrome or Edge
 
-The commands below use PowerShell.
+The examples below use PowerShell syntax.
 
 ### Install and check the environment
 
