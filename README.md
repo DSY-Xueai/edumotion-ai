@@ -2,17 +2,15 @@
 
 EduMotion AI 是一个本地运行的教学短视频生产工具：选择一个教材知识点或英语单词，生成教学文案，人工确认后自动配音、生成字幕，并用 Remotion 渲染成竖屏 MP4
 
-例如，输入数学知识点 `math-b1-ch1-topic-001`，项目会依次生成：
-
-```text
-资料摘要 → 分镜文案 → 审核稿 → 配音与字幕 → 1080 × 1920 视频
-```
-
-最终得到 `video.mp4`，同时保留文案、音频和渲染数据，方便检查或重新生成。目前支持数学、物理、化学和 CET4/CET6 英语词汇。
-
 ## 快速开始
 
-需要 Node.js、npm，以及本机 Chrome 或 Edge。以下命令使用 PowerShell。
+运行环境：
+
+- Node.js 20 LTS 或更高 LTS 版本（当前验证版本：24.5.0）
+- npm 10 或更高版本（当前验证版本：11.5.1）
+- Chrome 或 Edge
+
+以下命令使用 PowerShell。
 
 ### 安装并检查环境
 
@@ -66,15 +64,11 @@ workspace/videos/<日期>/<序号>/math-b1-ch1-topic-001/
 | `PIPELINE_PROVIDER_MODE` | `mock` / `openai` | 生成 research 和 draft |
 | `TTS_PROVIDER` | `mock` / `openai` / `qwen-local` | 生成分段语音和字幕时序 |
 
-- `mock`：无需外部服务，用于本地开发和流程检查。
-- `openai`：通过 OpenAI-compatible 接口生成结构化内容或语音，需要配置 `OPENAI_API_KEY`、`OPENAI_BASE_URL` 和对应模型。
-- `qwen-local`：通过本地 [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) 服务生成语音。当前项目主要使用该方案，但 TTS Provider 与生产流水线解耦，可以接入其他实现。
+运行项目不要求 API Key；只有启用 `openai` Provider 时才需要对应接口凭证。当前使用 [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) 服务生成语音。
 
 本地 Qwen3-TTS 的模型、Python 环境和启动方式见 [`docs/qwen-tts-local.md`](docs/qwen-tts-local.md)。正式视频不要使用 `--allow-mock-audio`。
 
-## 架构与项目结构
-
-CLI 负责推进 topic 状态；各阶段通过 JSON、WAV 和 Render Package 交换数据。Zod Schema 校验阶段产物，Subject Adapter 选择学科视觉模块，Provider 层隔离内容模型和 TTS 实现，Remotion 只消费已经批准的渲染数据。
+## 项目结构
 
 ```text
 curriculum/                     # 教材结构与 CET4/CET6 英语词库
@@ -99,10 +93,10 @@ workspace/                      # 运行产物，不提交到 Git
 ## 技术栈
 
 - **TypeScript + Node.js**：实现 CLI、生产编排和文件持久化。
-- **React + [Remotion](https://github.com/remotion-dev/remotion)**：定义学科画面组件并渲染 1080 × 1920 MP4。
-- **Zod**：约束 research、draft、audio manifest 和 render package 等阶段数据。
-- **[Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS)**：当前使用的本地语音合成方案；Provider 接口允许替换其他 TTS。
-- **Vitest**：覆盖课程、Provider、音频、渲染、质量门禁和完整生产链路。
+- **React + Remotion**：定义学科画面并渲染竖屏 MP4。
+- **Zod**：校验各阶段的结构化数据。
+- **Qwen3-TTS**：生成本地语音。
+- **Vitest**：运行单元、集成和端到端测试。
 
 ## 测试与质量
 
