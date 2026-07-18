@@ -119,4 +119,4 @@ npm run cli -- quality english --topic-id <topic-id>
 
 ## License
 
-[MIT](./LICENSE)
+MIT
