@@ -73,23 +73,31 @@ workspace/videos/<日期>/<序号>/math-b1-ch1-topic-001/
 ## 项目结构
 
 ```text
-curriculum/                     # 教材结构与 CET4/CET6 英语词库
-src/cli/                        # CLI 入口、命令分发和参数解析
-src/compositions/               # Remotion Composition 与学科视觉模块
-src/lib/curriculum/             # topic 加载、路由、词库和音标
-src/lib/research/               # 教学资料结构、生成和持久化
-src/lib/draft/                  # 文案、分镜和草稿质量检查
-src/lib/review/                 # 人工审核、批准稿和修订状态
-src/lib/audio/                  # TTS、WAV 处理和字幕时序
-src/lib/rendering/              # Render Package 构建与 MP4 渲染
-src/lib/quality/                # 英语脚本、音频和画面质量门禁
-src/lib/pipeline/               # 单条生产、续跑和英语批量队列
-src/lib/providers/              # Mock、OpenAI-compatible 与 Qwen Provider
-src/lib/workspace/              # topic 工作目录和状态清单
-tests/                          # 单元、集成和端到端测试
-tools/qwen_tts_server/          # 本地 Qwen3-TTS HTTP 服务
-docs/                           # Qwen3-TTS 与英语质量规则说明
-workspace/                      # 运行产物，不提交到 Git
+edumotion-ai/
+├── curriculum/                  # 教材结构与 CET4/CET6 英语词库
+├── assets/                      # 配音参考音频
+├── src/
+│   ├── cli/                     # CLI 入口、命令分发和参数解析
+│   ├── compositions/            # Remotion Composition 与学科视觉模块
+│   └── lib/
+│       ├── curriculum/          # topic 加载、路由、词库和音标
+│       ├── research/            # 教学资料生成和持久化
+│       ├── draft/               # 文案、分镜和草稿检查
+│       ├── review/              # 人工审核和修订状态
+│       ├── audio/               # TTS、WAV 和字幕时序
+│       ├── rendering/           # Render Package 与 MP4 渲染
+│       ├── quality/             # 脚本、音频和画面质量检查
+│       ├── pipeline/            # 单条生产、续跑和批量队列
+│       ├── providers/           # Mock、OpenAI-compatible 与 Qwen Provider
+│       └── workspace/           # topic 工作目录和状态管理
+├── tools/
+│   └── qwen_tts_server/         # 本地 Qwen3-TTS HTTP 服务
+├── tests/                        # 单元、集成和端到端测试
+├── docs/                         # Qwen3-TTS 与质量规则说明
+├── skills/remotion/              # Remotion 制作规则
+├── sox.py                        # Qwen3-TTS 的 SoX 兼容实现
+├── package.json                  # 项目脚本与依赖
+└── workspace/                    # 运行产物，不提交到 Git
 ```
 
 ## 技术栈

@@ -73,23 +73,31 @@ See [`docs/qwen-tts-local.md`](docs/qwen-tts-local.md) for the local Qwen3-TTS m
 ## Project Structure
 
 ```text
-curriculum/                     # Curriculum structure and CET4/CET6 vocabulary
-src/cli/                        # CLI entry point, command routing, and argument parsing
-src/compositions/               # Remotion compositions and subject visual modules
-src/lib/curriculum/             # Topic loading, routing, vocabulary, and phonetics
-src/lib/research/               # Research schemas, generation, and persistence
-src/lib/draft/                  # Scripts, storyboards, and draft quality checks
-src/lib/review/                 # Manual review, approved drafts, and revision state
-src/lib/audio/                  # TTS, WAV processing, and subtitle timing
-src/lib/rendering/              # Render Package assembly and MP4 rendering
-src/lib/quality/                # Quality gates for English scripts, audio, and visuals
-src/lib/pipeline/               # Single-item production, resume flow, and English batch queue
-src/lib/providers/              # Mock, OpenAI-compatible, and Qwen providers
-src/lib/workspace/              # Topic workspaces and state manifests
-tests/                          # Unit, integration, and end-to-end tests
-tools/qwen_tts_server/          # Local Qwen3-TTS HTTP service
-docs/                           # Qwen3-TTS and English quality documentation
-workspace/                      # Runtime outputs; not committed to Git
+edumotion-ai/
+├── curriculum/                  # Curriculum structure and CET4/CET6 vocabulary
+├── assets/                      # Voice reference audio
+├── src/
+│   ├── cli/                     # CLI entry point, command routing, and argument parsing
+│   ├── compositions/            # Remotion compositions and subject visual modules
+│   └── lib/
+│       ├── curriculum/          # Topic loading, routing, vocabulary, and phonetics
+│       ├── research/            # Teaching material generation and persistence
+│       ├── draft/               # Scripts, storyboards, and draft checks
+│       ├── review/              # Manual review and revision state
+│       ├── audio/               # TTS, WAV processing, and subtitle timing
+│       ├── rendering/           # Render Package assembly and MP4 rendering
+│       ├── quality/             # Script, audio, and visual quality checks
+│       ├── pipeline/            # Single-item production, resume flow, and batch queues
+│       ├── providers/           # Mock, OpenAI-compatible, and Qwen providers
+│       └── workspace/           # Topic workspace and state management
+├── tools/
+│   └── qwen_tts_server/         # Local Qwen3-TTS HTTP service
+├── tests/                        # Unit, integration, and end-to-end tests
+├── docs/                         # Qwen3-TTS and quality documentation
+├── skills/remotion/              # Remotion production rules
+├── sox.py                        # SoX compatibility layer for Qwen3-TTS
+├── package.json                  # Project scripts and dependencies
+└── workspace/                    # Runtime outputs; not committed to Git
 ```
 
 ## Tech Stack
@@ -119,4 +127,4 @@ See [`docs/english-video-quality.md`](docs/english-video-quality.md) for the com
 
 ## License
 
-[MIT](./LICENSE)
+MIT
