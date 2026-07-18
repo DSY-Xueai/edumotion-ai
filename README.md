@@ -1,5 +1,7 @@
 # EduMotion AI
 
+中文 | [English](./README_EN.md)
+
 EduMotion AI 是一个本地运行的教学短视频生产工具：选择一个教材知识点或英语单词，生成教学文案，人工确认后自动配音、生成字幕，并用 Remotion 渲染成竖屏 MP4。
 
 ## 快速开始
