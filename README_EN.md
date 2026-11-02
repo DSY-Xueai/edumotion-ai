@@ -1,130 +1,126 @@
-# EduMotion AI
+<div align="center">
 
-[中文](./README.md) | English
+<h1>EduMotion AI</h1>
 
-EduMotion AI is a local educational short-video production tool: select a curriculum topic or an English word, generate a lesson script, approve it, then automatically synthesize narration, create subtitles, and render a vertical MP4 with Remotion.
+<p><a href="./README.md">中文</a> | English</p>
+
+<p>
+  <img src="https://img.shields.io/badge/Node.js-20%2B-339933?logo=nodedotjs&logoColor=white" alt="Node.js 20+" />
+  <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.9" />
+  <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" alt="React 18" />
+  <img src="https://img.shields.io/badge/Remotion-4-0B84F3" alt="Remotion 4" />
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-green" alt="License: MIT" /></a>
+</p>
+
+</div>
+
+<p align="center">
+  <img src="./docs/Video_Generation_Overview.png" alt="From a concept to an educational video: enter a topic, generate content with AI, review, and produce the video" width="100%" />
+</p>
+
+## Purpose
+
+**Describe a teaching topic in Codex or Claude Code to turn a concept, an English word, or lesson material into a vertical video with narration and subtitles.**
+
+AI prepares the script and storyboard. After approval, the project generates speech, subtitles, and animated visuals. Scripts, storyboards, and intermediate files stay local for revision, reuse, and continued production.
+
+## Features
+
+- **Conversational workflow**: start with a topic or your own material, or reuse the included curriculum and CET4/CET6 vocabulary.
+- **Draft review**: approve scripts and storyboards before production; revise and regenerate as needed.
+- **Video production**: segmented speech synthesis, subtitle timing, and Remotion animation rendering to vertical MP4.
+- **Subject visuals**: English vocabulary cards and visual templates for math, physics, and chemistry.
+- **English quality checks**: phonetics, mnemonic copy, speech volume, subtitle duration, and the final audio track.
 
 ## Quick Start
 
-Requirements:
+### 1. Install
 
-- Node.js 20 LTS or a newer LTS release (currently verified with 24.5.0)
-- npm 10 or later (currently verified with 11.5.1)
-- Chrome or Edge
+Prepare Node.js 20+ LTS, npm 10+, Chrome or Edge, and an installed, signed-in copy of Codex or Claude Code.
 
-The examples below use PowerShell syntax.
-
-### Install and check the environment
+The commands below use PowerShell:
 
 ```powershell
 git clone https://github.com/DSY-Xueai/edumotion-ai.git
 cd edumotion-ai
-npm install
+npm ci
+```
 
-$env:PIPELINE_PROVIDER_MODE = "mock"
-$env:TTS_PROVIDER = "mock"
+### 2. Configure speech
+
+Speech synthesis supports local Qwen3-TTS or OpenAI TTS. This example uses local Qwen.
+
+Follow the [local speech setup guide](./docs/qwen-tts-local.md) to install the model and start the service. Then configure the terminal where you will launch the agent:
+
+```powershell
+$env:TTS_PROVIDER = "qwen-local"
+$env:QWEN_TTS_BASE_URL = "http://127.0.0.1:8020"
+$env:QWEN_TTS_AUTO_START = "false"
 npm run cli -- doctor
 ```
 
-`mock` mode does not call external models. It uses placeholder audio and is intended only to verify the content-production and video-rendering pipeline.
+These settings connect to an already running service. Replace the Python environment and model paths in the guide with your local paths.
 
-### Generate your first video
+<details>
+<summary>Use OpenAI TTS instead</summary>
+
+Set these variables before launching the agent:
 
 ```powershell
-# List available topics
-npm run cli -- curriculum list --subject math
-
-# Generate research and a storyboard draft
-npm run cli -- pipeline to-draft --topic-id math-b1-ch1-topic-001
-
-# Approve the draft
-npm run cli -- review --topic-id math-b1-ch1-topic-001 --action approve --note pass
-
-# Render a demo video with placeholder audio
-npm run cli -- produce render --topic-id math-b1-ch1-topic-001 --allow-mock-audio
+$env:PIPELINE_PROVIDER_MODE = "openai"
+$env:OPENAI_API_KEY = "<API Key>"
+$env:TTS_PROVIDER = "openai"
+npm run cli -- doctor
 ```
 
-Generated files are stored in:
+This route uses speech synthesis and transcription endpoints for narration and subtitle timing, with corresponding API charges.
+
+</details>
+
+### 3. Start a conversation
+
+In the same terminal, from the repository root, run `codex` or `claude` and enter:
 
 ```text
-workspace/videos/<日期>/<序号>/math-b1-ch1-topic-001/
-├── research/topic.json
-├── draft/lesson.json
-├── approved/lesson.json
-├── audio/
-└── render/
-    ├── render-package.json
-    └── video.mp4
+Create a vertical video teaching the English word "abandon" to Chinese learners.
+Include pronunciation, Chinese meanings, and a memory example grounded in the meaning.
+Aim for about 20 seconds. Show me the script and storyboard first.
+After approval, use the configured speech service to generate an MP4.
 ```
 
-## Provider Configuration
+[AGENTS.md](./AGENTS.md) defines the production workflow, and [CLAUDE.md](./CLAUDE.md) imports the same instructions. The agent prepares content and runs commands. Writing scripts directly through the agent requires no separate content-generation API configuration.
 
-Content generation and speech synthesis use separate providers and can be configured independently:
+Approve the draft to continue production. The default output location is:
 
-| Setting | Options | Purpose |
-| --- | --- | --- |
-| `PIPELINE_PROVIDER_MODE` | `mock` / `openai` | Generate research and draft files |
-| `TTS_PROVIDER` | `mock` / `openai` / `qwen-local` | Generate segmented speech and subtitle timing |
+```text
+workspace/videos/<date>/<sequence>/<topic-id>/render/video.mp4
+```
 
-Credentials are needed only when the `openai` provider is enabled. Speech is currently generated with the [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) service.
-
-See [`docs/qwen-tts-local.md`](docs/qwen-tts-local.md) for the local Qwen3-TTS model, Python environment, and startup instructions. Do not use `--allow-mock-audio` for production videos.
+Follow the [English quality checklist](./docs/english-video-quality.md) to verify English videos. Full checks require `ffmpeg` and `ffprobe` on PATH.
 
 ## Project Structure
 
 ```text
 edumotion-ai/
-├── curriculum/                  # Curriculum structure and CET4/CET6 vocabulary
-├── assets/                      # Voice reference audio
+├── AGENTS.md                 # AI production workflow and instructions
+├── CLAUDE.md                 # Claude Code instruction entry point
+├── curriculum/               # Curriculum and English vocabulary
+├── assets/                   # Voice reference assets
 ├── src/
-│   ├── cli/                     # CLI entry point, command routing, and argument parsing
-│   ├── compositions/            # Remotion compositions and subject visual modules
-│   └── lib/
-│       ├── curriculum/          # Topic loading, routing, vocabulary, and phonetics
-│       ├── research/            # Teaching material generation and persistence
-│       ├── draft/               # Scripts, storyboards, and draft checks
-│       ├── review/              # Manual review and revision state
-│       ├── audio/               # TTS, WAV processing, and subtitle timing
-│       ├── rendering/           # Render Package assembly and MP4 rendering
-│       ├── quality/             # Script, audio, and visual quality checks
-│       ├── pipeline/            # Single-item production, resume flow, and batch queues
-│       ├── providers/           # Mock, OpenAI-compatible, and Qwen providers
-│       └── workspace/           # Topic workspace and state management
-├── tools/
-│   └── qwen_tts_server/         # Local Qwen3-TTS HTTP service
-├── tests/                        # Unit, integration, and end-to-end tests
-├── docs/                         # Qwen3-TTS and quality documentation
-├── skills/remotion/              # Remotion production rules
-├── sox.py                        # SoX compatibility layer for Qwen3-TTS
-├── package.json                  # Project scripts and dependencies
-└── workspace/                    # Runtime outputs; not committed to Git
+│   ├── cli/                  # Command entry points
+│   ├── compositions/         # Video visuals and animation components
+│   └── lib/                  # Scripts, review, audio, rendering, and quality
+├── tools/qwen_tts_server/    # Local speech service
+├── docs/                     # Speech setup and quality guidance
+├── tests/                    # Automated tests
+└── workspace/               # Drafts, audio, and rendered videos
 ```
 
-## Tech Stack
+## Known Limitations
 
-- **TypeScript + Node.js**: CLI, production orchestration, and file persistence.
-- **React + Remotion**: subject visuals and vertical MP4 rendering.
-- **Zod**: structured data validation across pipeline stages.
-- **Qwen3-TTS**: local speech synthesis.
-- **Vitest**: unit, integration, and end-to-end testing.
-
-## Testing and Quality
-
-Run type checking and automated tests after code changes:
-
-```bash
-npm run lint:types
-npm test
-```
-
-English videos also require dedicated checks for script structure, subtitle alignment, volume, visual readability, and the final media file:
-
-```powershell
-npm run cli -- quality english --topic-id <topic-id>
-```
-
-See [`docs/english-video-quality.md`](docs/english-video-quality.md) for the complete rules. Automated checks define the delivery baseline; every production video should still be reviewed manually before release.
+- **Validation varies by subject**: English videos are the main optimization focus. Math, physics, and chemistry have fewer validated samples; check both the teaching content and its visual representation.
+- **Custom results require adjustment**: videos use existing templates. Specific teaching styles, complex demonstrations, or different layouts may require changes to scripts, storyboards, and React/Remotion components.
 
 ## License
 
-MIT
+[MIT](./LICENSE)

@@ -1,130 +1,127 @@
-# EduMotion AI
+<div align="center">
 
-中文 | [English](./README_EN.md)
+<h1>EduMotion AI</h1>
 
-EduMotion AI 是一个本地运行的教学短视频生产工具：选择一个教材知识点或英语单词，生成教学文案，人工确认后自动配音、生成字幕，并用 Remotion 渲染成竖屏 MP4。
+<p>中文 | <a href="./README_EN.md">English</a></p>
 
-## 快速开始
+<p>
+  <img src="https://img.shields.io/badge/Node.js-20%2B-339933?logo=nodedotjs&logoColor=white" alt="Node.js 20+" />
+  <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.9" />
+  <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" alt="React 18" />
+  <img src="https://img.shields.io/badge/Remotion-4-0B84F3" alt="Remotion 4" />
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-green" alt="License: MIT" /></a>
+</p>
 
-运行环境：
+</div>
 
-- Node.js 20 LTS 或更高 LTS 版本（当前验证版本：24.5.0）
-- npm 10 或更高版本（当前验证版本：11.5.1）
-- Chrome 或 Edge
+<p align="center">
+  <img src="./docs/Video_Generation_Overview.png" alt="从一个知识点，到一条教学视频：输入主题、AI 生成内容、人工审核、自动制作视频" width="100%" />
+</p>
 
-以下示例采用 PowerShell 语法。
+## 核心用途
 
-### 安装并检查环境
+**在 Codex 或 Claude Code 中描述教学主题，把知识点、英语单词或讲解资料制作成带配音和字幕的竖屏视频。**
+
+AI 整理文案与分镜，确认后由项目完成配音、字幕和画面渲染。文案、分镜和各阶段产物保存在本地，便于修改、复用和继续制作。
+
+## 核心功能
+
+- **对话制作**：从主题或自带资料开始，也可复用内置教材目录与 CET4/CET6 词库。
+- **草稿审核**：先确认文案和分镜，再生成视频，支持修改后重新制作。
+- **自动成片**：分段配音、字幕时序处理、Remotion 动画渲染，输出竖屏 MP4。
+- **学科画面**：提供英语词卡，以及数学、物理、化学的画面模板。
+- **英语质量检查**：检查音标、记忆文案、配音音量、字幕时长及成片音轨。
+
+## 快速上手
+
+### 1. 安装项目
+
+准备 Node.js 20+ LTS、npm 10+、Chrome 或 Edge，以及已安装并登录的 Codex 或 Claude Code。
+
+以下命令使用 PowerShell：
 
 ```powershell
 git clone https://github.com/DSY-Xueai/edumotion-ai.git
 cd edumotion-ai
-npm install
+npm ci
+```
 
-$env:PIPELINE_PROVIDER_MODE = "mock"
-$env:TTS_PROVIDER = "mock"
+### 2. 配置配音
+
+配音支持本地 Qwen3-TTS 或 OpenAI TTS。以下以本地 Qwen 为例。
+
+先按[本地配音指南](./docs/qwen-tts-local.md)安装模型并启动服务，再在准备运行代理的终端中设置：
+
+```powershell
+$env:TTS_PROVIDER = "qwen-local"
+$env:QWEN_TTS_BASE_URL = "http://127.0.0.1:8020"
+$env:QWEN_TTS_AUTO_START = "false"
 npm run cli -- doctor
 ```
 
-`mock` 模式不调用外部模型，语音为占位音，只用于验证内容生产和视频渲染链路。
+以上配置连接已启动的服务。指南中的 Python 环境和模型路径应替换为本机路径。
 
-### 生成第一条视频
+<details>
+<summary>改用 OpenAI TTS</summary>
+
+在运行代理前设置：
 
 ```powershell
-# 查看可用知识点
-npm run cli -- curriculum list --subject math
-
-# 生成资料和分镜草稿
-npm run cli -- pipeline to-draft --topic-id math-b1-ch1-topic-001
-
-# 批准草稿
-npm run cli -- review --topic-id math-b1-ch1-topic-001 --action approve --note pass
-
-# 使用占位音频渲染演示视频
-npm run cli -- produce render --topic-id math-b1-ch1-topic-001 --allow-mock-audio
+$env:PIPELINE_PROVIDER_MODE = "openai"
+$env:OPENAI_API_KEY = "<API Key>"
+$env:TTS_PROVIDER = "openai"
+npm run cli -- doctor
 ```
 
-生成结果位于：
+该路径使用语音合成和转写接口生成配音与字幕时序，产生相应 API 费用。
+
+</details>
+
+### 3. 在对话中开始制作
+
+在同一终端、仓库根目录运行 `codex` 或 `claude`，输入：
 
 ```text
-workspace/videos/<日期>/<序号>/math-b1-ch1-topic-001/
-├── research/topic.json
-├── draft/lesson.json
-├── approved/lesson.json
-├── audio/
-└── render/
-    ├── render-package.json
-    └── video.mp4
+制作一条英语单词 abandon 的竖屏教学视频。
+包含发音、中文释义和贴合词义的记忆示例，时长约 20 秒。
+先给我文案和分镜，确认后使用已配置的配音生成 MP4。
 ```
 
-## Provider 配置
+确认草稿后继续制作，成品默认保存至：
 
-内容生成和语音生成使用独立 Provider，可以按运行环境分别选择：
+```text
+workspace/videos/<日期>/<序号>/<topic-id>/render/video.mp4
+```
 
-| 配置项 | 可选值 | 作用 |
-| --- | --- | --- |
-| `PIPELINE_PROVIDER_MODE` | `mock` / `openai` | 生成 research 和 draft |
-| `TTS_PROVIDER` | `mock` / `openai` / `qwen-local` | 生成分段语音和字幕时序 |
+英语视频按[质量检查说明](./docs/english-video-quality.md)验证；完整检查需在 PATH 中提供 `ffmpeg` 和 `ffprobe`。
 
-启用 `openai` Provider 时才需要对应接口凭证。当前使用 [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) 服务生成语音。
+## 成片示例
 
-本地 Qwen3-TTS 的模型、Python 环境和启动方式见 [`docs/qwen-tts-local.md`](docs/qwen-tts-local.md)。正式视频不要使用 `--allow-mock-audio`。
+[▶ 播放示例视频](./example.mp4)
 
 ## 项目结构
 
 ```text
 edumotion-ai/
-├── curriculum/                  # 教材结构与 CET4/CET6 英语词库
-├── assets/                      # 配音参考音频
+├── AGENTS.md                 # AI 制作流程与操作规则
+├── CLAUDE.md                 # Claude Code 规则入口
+├── curriculum/               # 教材目录与英语词库
+├── assets/                   # 配音参考素材
 ├── src/
-│   ├── cli/                     # CLI 入口、命令分发和参数解析
-│   ├── compositions/            # Remotion Composition 与学科视觉模块
-│   └── lib/
-│       ├── curriculum/          # topic 加载、路由、词库和音标
-│       ├── research/            # 教学资料生成和持久化
-│       ├── draft/               # 文案、分镜和草稿检查
-│       ├── review/              # 人工审核和修订状态
-│       ├── audio/               # TTS、WAV 和字幕时序
-│       ├── rendering/           # Render Package 与 MP4 渲染
-│       ├── quality/             # 脚本、音频和画面质量检查
-│       ├── pipeline/            # 单条生产、续跑和批量队列
-│       ├── providers/           # Mock、OpenAI-compatible 与 Qwen Provider
-│       └── workspace/           # topic 工作目录和状态管理
-├── tools/
-│   └── qwen_tts_server/         # 本地 Qwen3-TTS HTTP 服务
-├── tests/                        # 单元、集成和端到端测试
-├── docs/                         # Qwen3-TTS 与质量规则说明
-├── skills/remotion/              # Remotion 制作规则
-├── sox.py                        # Qwen3-TTS 的 SoX 兼容实现
-├── package.json                  # 项目脚本与依赖
-└── workspace/                    # 运行产物，不提交到 Git
+│   ├── cli/                  # 命令入口
+│   ├── compositions/         # 视频画面与动画组件
+│   └── lib/                  # 文案、审核、配音、渲染与质量检查
+├── tools/qwen_tts_server/    # 本地配音服务
+├── docs/                     # 配音配置与质量说明
+├── tests/                    # 自动化测试
+└── workspace/               # 草稿、音频及视频产物
 ```
 
-## 技术栈
+## 已知问题
 
-- **TypeScript + Node.js**：实现 CLI、生产编排和文件持久化。
-- **React + Remotion**：定义学科画面并渲染竖屏 MP4。
-- **Zod**：校验各阶段的结构化数据。
-- **Qwen3-TTS**：生成本地语音。
-- **Vitest**：运行单元、集成和端到端测试。
-
-## 测试与质量
-
-代码修改通过类型检查和自动化测试确认：
-
-```bash
-npm run lint:types
-npm test
-```
-
-英语成片还需要独立检查脚本结构、字幕对齐、音量、画面可读性和最终媒体文件：
-
-```powershell
-npm run cli -- quality english --topic-id <topic-id>
-```
-
-完整规则见 [`docs/english-video-quality.md`](docs/english-video-quality.md)。自动检查是交付底线，正式发布前仍需人工观看成片。
+- **各学科验证程度不同**：英语视频是当前主要优化方向；数学、物理、化学的成片验证较少，制作后应重点检查知识表达和画面对应关系。
+- **定制效果仍需调整**：成片基于现有模板，特定教学风格、复杂演示或不同版式可能需要调整文案、分镜及 React/Remotion 组件。
 
 ## License
 
-MIT
+[MIT](./LICENSE)
