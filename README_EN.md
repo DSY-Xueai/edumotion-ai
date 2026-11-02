@@ -88,8 +88,6 @@ Aim for about 20 seconds. Show me the script and storyboard first.
 After approval, use the configured speech service to generate an MP4.
 ```
 
-[AGENTS.md](./AGENTS.md) defines the production workflow, and [CLAUDE.md](./CLAUDE.md) imports the same instructions. The agent prepares content and runs commands. Writing scripts directly through the agent requires no separate content-generation API configuration.
-
 Approve the draft to continue production. The default output location is:
 
 ```text
@@ -97,6 +95,10 @@ workspace/videos/<date>/<sequence>/<topic-id>/render/video.mp4
 ```
 
 Follow the [English quality checklist](./docs/english-video-quality.md) to verify English videos. Full checks require `ffmpeg` and `ffprobe` on PATH.
+
+## Video Example
+
+[▶ Watch the sample video](./example.mp4)
 
 ## Project Structure
 
