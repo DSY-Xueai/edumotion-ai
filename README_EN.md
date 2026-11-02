@@ -24,7 +24,7 @@
 
 AI prepares the script and storyboard. After approval, the project generates speech, subtitles, and animated visuals. Scripts, storyboards, and intermediate files stay local for revision, reuse, and continued production.
 
-## Features
+## ✨ Features
 
 - **Conversational workflow**: start with a topic or your own material, or reuse the included curriculum and CET4/CET6 vocabulary.
 - **Draft review**: approve scripts and storyboards before production; revise and regenerate as needed.
@@ -32,7 +32,7 @@ AI prepares the script and storyboard. After approval, the project generates spe
 - **Subject visuals**: English vocabulary cards and visual templates for math, physics, and chemistry.
 - **English quality checks**: phonetics, mnemonic copy, speech volume, subtitle duration, and the final audio track.
 
-## Quick Start
+## 🚀 Quick Start
 
 ### 1. Install
 
@@ -96,9 +96,9 @@ workspace/videos/<date>/<sequence>/<topic-id>/render/video.mp4
 
 Follow the [English quality checklist](./docs/english-video-quality.md) to verify English videos. Full checks require `ffmpeg` and `ffprobe` on PATH.
 
-## Video Example
+## 🎬 Video Example
 
-[▶ Watch the sample video](./example.mp4)
+https://github.com/user-attachments/assets/225d2e6f-cc69-448c-ba29-c4c614230021
 
 ## Project Structure
 
